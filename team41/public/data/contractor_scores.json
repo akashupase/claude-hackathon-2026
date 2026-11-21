@@ -1,0 +1,276 @@
+{
+ "meta": {
+  "generated_at": "2026-11-21 14:47",
+  "synthetic": true,
+  "note": "Audit simulation on 100% synthetic data. Contractors, work orders and notices are fictional; figures exist to demonstrate an audit workflow, not to accuse anyone.",
+  "weights": {
+   "sla": 0.45,
+   "reopen": 0.35,
+   "cost": 0.2
+  },
+  "score_formula": "0.45·SLA met% + 0.35·(100 − reopen30d%) + 0.20·cost-discipline",
+  "adjustment_formula": "difficulty = clamp(1 + 1.0·(ward low-lying gap vs city) + 0.6·(Orange/Red-alert job gap vs city), 0.75, 1.6); SLA-miss% and reopen% are divided by difficulty before re-scoring, so contractors working flood-prone wards in heavy-rain weeks are not unfairly penalized",
+  "city_baseline": {
+   "jobs": 2499,
+   "sla_met_pct": 49.6,
+   "sla_miss_pct": 50.4,
+   "reopen_pct": 24.4,
+   "total_billed_inr": 134328183,
+   "avg_cost_inr": 53752,
+   "avg_cost_vs_expected_pct": 109.1,
+   "avg_ward_low_lying_index": 0.664,
+   "stress_jobs_pct": 21.9,
+   "cost_score": 77.3
+  }
+ },
+ "contractors": [
+  {
+   "contractor_id": "CT05",
+   "contractor_name": "Deccan Paving Solutions (synthetic)",
+   "raw": {
+    "jobs": 287,
+    "sla_met_pct": 59.6,
+    "sla_miss_pct": 40.4,
+    "reopen_pct": 9.1,
+    "total_billed_inr": 14074782,
+    "avg_cost_inr": 49041,
+    "avg_cost_vs_expected_pct": 104.3,
+    "avg_ward_low_lying_index": 0.661,
+    "stress_jobs_pct": 26.8,
+    "cost_score": 89.3
+   },
+   "raw_score": 76.5,
+   "adjusted": {
+    "difficulty_factor": 1.13,
+    "sla_met_pct": 64.2,
+    "reopen_pct": 8.1,
+    "fair_score": 78.9,
+    "miss_vs_expected": 0.8,
+    "reopen_vs_expected": 0.37,
+    "context_note": "Adjusted up for flood-prone patch: low-lying idx 0.66, 27% jobs in Orange/Red-alert weeks; reopens just 0.4× the rate its ward/rain mix predicts — genuinely solid"
+   },
+   "ward_low_lying_index": 0.661,
+   "stress_jobs_pct": 26.8,
+   "raw_rank": 1,
+   "fair_rank": 1,
+   "rank_delta": 0
+  },
+  {
+   "contractor_id": "CT01",
+   "contractor_name": "Sahyadri Infra Works (synthetic)",
+   "raw": {
+    "jobs": 337,
+    "sla_met_pct": 62.3,
+    "sla_miss_pct": 37.7,
+    "reopen_pct": 13.6,
+    "total_billed_inr": 17209448,
+    "avg_cost_inr": 51066,
+    "avg_cost_vs_expected_pct": 105.9,
+    "avg_ward_low_lying_index": 0.663,
+    "stress_jobs_pct": 25.5,
+    "cost_score": 85.3
+   },
+   "raw_score": 75.3,
+   "adjusted": {
+    "difficulty_factor": 1.097,
+    "sla_met_pct": 65.6,
+    "reopen_pct": 12.4,
+    "fair_score": 77.3,
+    "miss_vs_expected": 0.75,
+    "reopen_vs_expected": 0.56,
+    "context_note": "Adjusted up for flood-prone patch: low-lying idx 0.66, 26% jobs in Orange/Red-alert weeks; reopens just 0.6× the rate its ward/rain mix predicts — genuinely solid"
+   },
+   "ward_low_lying_index": 0.663,
+   "stress_jobs_pct": 25.5,
+   "raw_rank": 2,
+   "fair_rank": 2,
+   "rank_delta": 0
+  },
+  {
+   "contractor_id": "CT08",
+   "contractor_name": "Mithi Infra Projects (synthetic)",
+   "raw": {
+    "jobs": 319,
+    "sla_met_pct": 51.7,
+    "sla_miss_pct": 48.3,
+    "reopen_pct": 11.6,
+    "total_billed_inr": 17143836,
+    "avg_cost_inr": 53742,
+    "avg_cost_vs_expected_pct": 108.3,
+    "avg_ward_low_lying_index": 0.672,
+    "stress_jobs_pct": 20.7,
+    "cost_score": 79.2
+   },
+   "raw_score": 70.0,
+   "adjusted": {
+    "difficulty_factor": 0.979,
+    "sla_met_pct": 50.7,
+    "reopen_pct": 11.8,
+    "fair_score": 69.5,
+    "miss_vs_expected": 0.95,
+    "reopen_vs_expected": 0.48,
+    "context_note": "Working conditions close to the city average; reopens just 0.5× the rate its ward/rain mix predicts — genuinely solid"
+   },
+   "ward_low_lying_index": 0.672,
+   "stress_jobs_pct": 20.7,
+   "raw_rank": 3,
+   "fair_rank": 3,
+   "rank_delta": 0
+  },
+  {
+   "contractor_id": "CT06",
+   "contractor_name": "Shivneri Construction (synthetic)",
+   "raw": {
+    "jobs": 289,
+    "sla_met_pct": 47.1,
+    "sla_miss_pct": 52.9,
+    "reopen_pct": 26.3,
+    "total_billed_inr": 14672446,
+    "avg_cost_inr": 50769,
+    "avg_cost_vs_expected_pct": 105.5,
+    "avg_ward_low_lying_index": 0.677,
+    "stress_jobs_pct": 24.6,
+    "cost_score": 86.4
+   },
+   "raw_score": 64.3,
+   "adjusted": {
+    "difficulty_factor": 1.094,
+    "sla_met_pct": 51.6,
+    "reopen_pct": 24.1,
+    "fair_score": 67.1,
+    "miss_vs_expected": 1.04,
+    "reopen_vs_expected": 1.08,
+    "context_note": "Adjusted up for flood-prone patch: low-lying idx 0.68, 25% jobs in Orange/Red-alert weeks; reopens 1.1× the rate its ward/rain mix predicts"
+   },
+   "ward_low_lying_index": 0.677,
+   "stress_jobs_pct": 24.6,
+   "raw_rank": 4,
+   "fair_rank": 4,
+   "rank_delta": 0
+  },
+  {
+   "contractor_id": "CT02",
+   "contractor_name": "Konkan Roadcon Pvt Ltd (synthetic)",
+   "raw": {
+    "jobs": 337,
+    "sla_met_pct": 46.0,
+    "sla_miss_pct": 54.0,
+    "reopen_pct": 26.7,
+    "total_billed_inr": 18906137,
+    "avg_cost_inr": 56101,
+    "avg_cost_vs_expected_pct": 106.2,
+    "avg_ward_low_lying_index": 0.668,
+    "stress_jobs_pct": 20.8,
+    "cost_score": 84.5
+   },
+   "raw_score": 63.3,
+   "adjusted": {
+    "difficulty_factor": 0.976,
+    "sla_met_pct": 44.7,
+    "reopen_pct": 27.4,
+    "fair_score": 62.4,
+    "miss_vs_expected": 1.08,
+    "reopen_vs_expected": 1.09,
+    "context_note": "Working conditions close to the city average; reopens 1.1× the rate its ward/rain mix predicts"
+   },
+   "ward_low_lying_index": 0.668,
+   "stress_jobs_pct": 20.8,
+   "raw_rank": 5,
+   "fair_rank": 5,
+   "rank_delta": 0
+  },
+  {
+   "contractor_id": "CT04",
+   "contractor_name": "Western Coast Asphalt Co (synthetic)",
+   "raw": {
+    "jobs": 299,
+    "sla_met_pct": 47.2,
+    "sla_miss_pct": 52.8,
+    "reopen_pct": 38.8,
+    "total_billed_inr": 17491777,
+    "avg_cost_inr": 58500,
+    "avg_cost_vs_expected_pct": 107.1,
+    "avg_ward_low_lying_index": 0.656,
+    "stress_jobs_pct": 21.1,
+    "cost_score": 82.2
+   },
+   "raw_score": 59.1,
+   "adjusted": {
+    "difficulty_factor": 0.966,
+    "sla_met_pct": 45.3,
+    "reopen_pct": 40.2,
+    "fair_score": 57.8,
+    "miss_vs_expected": 1.05,
+    "reopen_vs_expected": 1.58,
+    "context_note": "Working conditions close to the city average; reopens 1.6× the rate its ward/rain mix predicts — red flag stands"
+   },
+   "ward_low_lying_index": 0.656,
+   "stress_jobs_pct": 21.1,
+   "raw_rank": 6,
+   "fair_rank": 6,
+   "rank_delta": 0
+  },
+  {
+   "contractor_id": "CT07",
+   "contractor_name": "Arabian Sea Engineering (synthetic)",
+   "raw": {
+    "jobs": 328,
+    "sla_met_pct": 43.6,
+    "sla_miss_pct": 56.4,
+    "reopen_pct": 32.3,
+    "total_billed_inr": 18639434,
+    "avg_cost_inr": 56827,
+    "avg_cost_vs_expected_pct": 115.9,
+    "avg_ward_low_lying_index": 0.662,
+    "stress_jobs_pct": 19.5,
+    "cost_score": 60.2
+   },
+   "raw_score": 55.4,
+   "adjusted": {
+    "difficulty_factor": 0.931,
+    "sla_met_pct": 39.4,
+    "reopen_pct": 34.7,
+    "fair_score": 52.6,
+    "miss_vs_expected": 1.13,
+    "reopen_vs_expected": 1.31,
+    "context_note": "Working conditions close to the city average; reopens 1.3× the rate its ward/rain mix predicts — red flag stands"
+   },
+   "ward_low_lying_index": 0.662,
+   "stress_jobs_pct": 19.5,
+   "raw_rank": 7,
+   "fair_rank": 7,
+   "rank_delta": 0
+  },
+  {
+   "contractor_id": "CT03",
+   "contractor_name": "Mahalaxmi Civil Contractors (synthetic)",
+   "raw": {
+    "jobs": 303,
+    "sla_met_pct": 39.3,
+    "sla_miss_pct": 60.7,
+    "reopen_pct": 37.6,
+    "total_billed_inr": 16190323,
+    "avg_cost_inr": 53433,
+    "avg_cost_vs_expected_pct": 119.3,
+    "avg_ward_low_lying_index": 0.651,
+    "stress_jobs_pct": 16.8,
+    "cost_score": 51.8
+   },
+   "raw_score": 49.9,
+   "adjusted": {
+    "difficulty_factor": 0.841,
+    "sla_met_pct": 27.8,
+    "reopen_pct": 44.7,
+    "fair_score": 42.2,
+    "miss_vs_expected": 1.21,
+    "reopen_vs_expected": 1.53,
+    "context_note": "Easier patch than city avg: low-lying idx 0.65, 17% jobs in Orange/Red-alert weeks; reopens 1.5× the rate its ward/rain mix predicts — red flag stands"
+   },
+   "ward_low_lying_index": 0.651,
+   "stress_jobs_pct": 16.8,
+   "raw_rank": 8,
+   "fair_rank": 8,
+   "rank_delta": 0
+  }
+ ]
+}

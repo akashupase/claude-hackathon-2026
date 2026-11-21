@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Path } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Ward } from "./data";
@@ -20,18 +20,45 @@ const SELECTED = { color: CORAL, weight: 3, opacity: 1, fillOpacity: 0.34 };
 export default function WardMap({
   wards,
   outlines,
+  // Optional controlled-selection props — omit them and the map owns its own
+  // selection state exactly as before.
+  selectedCode,
+  onWardSelect,
+  drawerFooter,
 }: {
   wards: Ward[];
   outlines: unknown;
+  selectedCode?: string | null;
+  onWardSelect?: (wardCode: string | null) => void;
+  drawerFooter?: ReactNode;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [selected, setSelected] = useState<Ward | null>(null);
+  const isControlled = selectedCode !== undefined;
+  const [internalSelected, setInternalSelected] = useState<Ward | null>(null);
   // Lets the (long-lived) Leaflet handlers read the current selection.
-  const selectedCode = useRef<string | null>(null);
+  const activeCode = useRef<string | null>(null);
   const restyleAll = useRef<(() => void) | null>(null);
 
+  const wardByCode = useMemo(
+    () => new Map(wards.map((w) => [w.ward_code, w])),
+    [wards],
+  );
+  const selected = isControlled
+    ? selectedCode
+      ? wardByCode.get(selectedCode) ?? null
+      : null
+    : internalSelected;
+
+  const select = useCallback(
+    (ward: Ward | null) => {
+      if (!isControlled) setInternalSelected(ward);
+      onWardSelect?.(ward ? ward.ward_code : null);
+    },
+    [isControlled, onWardSelect],
+  );
+
   useEffect(() => {
-    selectedCode.current = selected?.ward_code ?? null;
+    activeCode.current = selected?.ward_code ?? null;
     restyleAll.current?.();
   }, [selected]);
 
@@ -47,7 +74,8 @@ export default function WardMap({
       if (cancelled) return;
 
       const byCode = new Map(wards.map((w) => [w.ward_code, w]));
-      map = L.map(el, { scrollWheelZoom: true }).setView([19.07, 72.88], 11);
+      const theMap = L.map(el, { scrollWheelZoom: true }).setView([19.07, 72.88], 11);
+      map = theMap;
 
       L.tileLayer(
         "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
@@ -56,7 +84,7 @@ export default function WardMap({
 
       const polys = new Map<string, Path>();
       const styleFor = (code: string) =>
-        selectedCode.current === code ? SELECTED : BASE;
+        activeCode.current === code ? SELECTED : BASE;
 
       const layer = L.geoJSON(outlines as Outlines, {
         style: BASE,
@@ -73,7 +101,7 @@ export default function WardMap({
             mouseover: () => poly.setStyle(HOVER),
             mouseout: () => poly.setStyle(styleFor(code)),
             click: () => {
-              if (ward) setSelected(ward);
+              if (ward) select(ward);
             },
           });
         },
@@ -84,6 +112,107 @@ export default function WardMap({
       restyleAll.current();
 
       map.fitBounds(layer.getBounds(), { padding: [16, 16] });
+
+      // ---- "Locate me": place the user, find their ward ----------------
+      // Ward polygons are a Voronoi approximation around ward centroids, so
+      // the nearest centroid IS the ward the point falls in.
+      let userLayer: import("leaflet").LayerGroup | undefined;
+      let locateBtn: HTMLButtonElement | undefined;
+      let locateStatus: HTMLDivElement | undefined;
+      const setLocateStatus = (text: string) => {
+        if (!locateStatus) return;
+        locateStatus.textContent = text;
+        locateStatus.classList.toggle("show", text !== "");
+      };
+
+      const locateMe = () => {
+        if (!navigator.geolocation) {
+          setLocateStatus("Your browser can't share your location.");
+          return;
+        }
+        if (locateBtn) {
+          locateBtn.disabled = true;
+          locateBtn.textContent = "Locating…";
+        }
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            let best = wards[0];
+            let bestD = Number.POSITIVE_INFINITY;
+            for (const w of wards) {
+              const dLat = w.centroid_lat - lat;
+              const dLon = (w.centroid_lon - lng) * Math.cos((lat * Math.PI) / 180);
+              const d = dLat * dLat + dLon * dLon;
+              if (d < bestD) {
+                bestD = d;
+                best = w;
+              }
+            }
+            if (!userLayer) {
+              userLayer = L.layerGroup().addTo(theMap);
+            }
+            userLayer.clearLayers();
+            L.circle([lat, lng], {
+              radius: Math.max(pos.coords.accuracy || 0, 60),
+              color: "#ee7454",
+              weight: 1,
+              opacity: 0.5,
+              fillColor: "#ee7454",
+              fillOpacity: 0.12,
+            }).addTo(userLayer);
+            L.circleMarker([lat, lng], {
+              radius: 7,
+              color: "#ee7454",
+              weight: 2.5,
+              fillColor: "#fff",
+              fillOpacity: 1,
+            })
+              .addTo(userLayer)
+              .bindTooltip("You are here (approx.)");
+            theMap.setView([lat, lng], 12);
+            select(best);
+            if (locateBtn) {
+              locateBtn.disabled = false;
+              locateBtn.textContent = "◎ Locate me";
+            }
+            setLocateStatus("");
+          },
+          (err) => {
+            setLocateStatus(
+              err.code === 1
+                ? "Location permission denied — allow it in your browser, then try again."
+                : "Couldn't get your location. Please try again.",
+            );
+            if (locateBtn) {
+              locateBtn.disabled = false;
+              locateBtn.textContent = "◎ Locate me";
+            }
+          },
+          { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 },
+        );
+      };
+
+      const LocateControl = L.Control.extend({
+        options: { position: "topleft" },
+        onAdd() {
+          const div = L.DomUtil.create("div", "locate-me-ctl");
+          const btn = L.DomUtil.create("button", "locate-btn", div);
+          btn.type = "button";
+          btn.textContent = "◎ Locate me";
+          const status = L.DomUtil.create("div", "locate-msg", div);
+          status.setAttribute("role", "status");
+          status.setAttribute("aria-live", "polite");
+          locateBtn = btn;
+          locateStatus = status;
+          L.DomEvent.on(btn, "click", (e) => {
+            L.DomEvent.stop(e);
+            locateMe();
+          });
+          return div;
+        },
+      });
+      map.addControl(new LocateControl());
     });
 
     return () => {
@@ -91,7 +220,7 @@ export default function WardMap({
       restyleAll.current = null;
       map?.remove();
     };
-  }, [wards, outlines]);
+  }, [wards, outlines, select]);
 
   return (
     <div className="absolute inset-0">
@@ -109,7 +238,7 @@ export default function WardMap({
             </div>
             <button
               type="button"
-              onClick={() => setSelected(null)}
+              onClick={() => select(null)}
               className="grid size-8 flex-none place-items-center rounded-full text-lg text-[#4a4f52] hover:bg-[rgba(43,48,51,.14)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ee7454]"
               aria-label="Close"
             >
@@ -133,6 +262,11 @@ export default function WardMap({
           <p className="mt-2 text-sm text-[#4a4f52]">
             {selected.assistant_commissioner_office}
           </p>
+          {drawerFooter ? (
+            <div className="mt-3 border-t-2 border-dotted border-[rgba(43,48,51,.14)] pt-3">
+              {drawerFooter}
+            </div>
+          ) : null}
         </aside>
       )}
     </div>
