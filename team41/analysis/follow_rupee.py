@@ -637,6 +637,17 @@ def main():
         if len(rows) > 1:
             econ[wt] = sorted(rows, key=lambda r: r["cost_per_lasting_fix_inr"])
     summary["method_economics"] = econ
+    # how far each job's price is from the rate card (the Audit page's one chart)
+    edges = [round(0.7 + 0.05 * k, 2) for k in range(17)]  # 0.70 .. 1.50
+    hist = []
+    for lo, hi in zip(edges[:-1], edges[1:]):
+        hist.append(dict(lo=lo, hi=hi, jobs=int(((wo.cost_ratio > lo) & (wo.cost_ratio <= hi)).sum())))
+    hist.append(dict(lo=1.5, hi=None, jobs=int((wo.cost_ratio > 1.5).sum())))
+    summary["cost_ratio_hist"] = hist
+    summary["not_flagged"] = dict(
+        missed_deadlines=int((wo.sla_met == "N").sum()), failed_fixes=int((wo.reopened_within_30d == "Y").sum()),
+        normal_price_band=int(((wo.cost_ratio > 0.7) & (wo.cost_ratio <= 1.3)).sum()),
+        between_130_135=int(((wo.cost_ratio > 1.30) & (wo.cost_ratio <= OVERBILL_RATIO)).sum()))
     pend = cx["pending"]
     summary["connections"] = dict(
         accidents_while_pending=len(pend), pending_fatal=sum(p["severity"] == "Fatal" for p in pend),

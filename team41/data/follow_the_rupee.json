@@ -135,6 +135,99 @@
     }
    ]
   },
+  "cost_ratio_hist": [
+   {
+    "lo": 0.7,
+    "hi": 0.75,
+    "jobs": 0
+   },
+   {
+    "lo": 0.75,
+    "hi": 0.8,
+    "jobs": 76
+   },
+   {
+    "lo": 0.8,
+    "hi": 0.85,
+    "jobs": 218
+   },
+   {
+    "lo": 0.85,
+    "hi": 0.9,
+    "jobs": 239
+   },
+   {
+    "lo": 0.9,
+    "hi": 0.95,
+    "jobs": 226
+   },
+   {
+    "lo": 0.95,
+    "hi": 1.0,
+    "jobs": 230
+   },
+   {
+    "lo": 1.0,
+    "hi": 1.05,
+    "jobs": 238
+   },
+   {
+    "lo": 1.05,
+    "hi": 1.1,
+    "jobs": 221
+   },
+   {
+    "lo": 1.1,
+    "hi": 1.15,
+    "jobs": 258
+   },
+   {
+    "lo": 1.15,
+    "hi": 1.2,
+    "jobs": 222
+   },
+   {
+    "lo": 1.2,
+    "hi": 1.25,
+    "jobs": 210
+   },
+   {
+    "lo": 1.25,
+    "hi": 1.3,
+    "jobs": 247
+   },
+   {
+    "lo": 1.3,
+    "hi": 1.35,
+    "jobs": 1
+   },
+   {
+    "lo": 1.35,
+    "hi": 1.4,
+    "jobs": 2
+   },
+   {
+    "lo": 1.4,
+    "hi": 1.45,
+    "jobs": 0
+   },
+   {
+    "lo": 1.45,
+    "hi": 1.5,
+    "jobs": 2
+   },
+   {
+    "lo": 1.5,
+    "hi": null,
+    "jobs": 109
+   }
+  ],
+  "not_flagged": {
+   "missed_deadlines": 1259,
+   "failed_fixes": 611,
+   "normal_price_band": 2385,
+   "between_130_135": 1
+  },
   "connections": {
    "accidents_while_pending": 85,
    "pending_fatal": 3,
