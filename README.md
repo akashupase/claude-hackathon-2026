@@ -30,6 +30,26 @@ Open **`web/index.html`** in a browser (one self-contained file, no server neede
 - **Contractor ranking** and **Good work** section where citizens can endorse a contractor (stored in the browser only; no database)
 - **Language switch**: English, हिंदी, मराठी for headings and buttons
 
+## How every data file is used
+
+| File | Used for |
+|---|---|
+| `work_orders.csv` | Everything: audit, scorecards, timelines, trail |
+| `rate_card.csv` | Over-billing check; cost of the next-rupee plan |
+| `roads.csv` / `roads.geojson` | DLP check; road names; road segments on the map coloured by flagged / failed |
+| `contractors.csv` | Scorecard context (empanelled since, listed wards). 80% of jobs are outside listed wards for every contractor, so it is a data note, not a flag |
+| `complaints.csv` | Trail, complaint tracker, heatmap, open problems for the plan |
+| `localities.csv` | Geocoding complaints and social posts (incl. Devanagari aliases) |
+| `social_posts.csv` | Problem reports, sarcasm, thanks, noise; problems with no complaint filed |
+| `accidents.csv` | Plan risk; **accidents while a complaint waited for repair** (×1.5 priority) |
+| `facilities.csv` | Ambulance roads to emergency hospitals (×2 priority); school access |
+| `traffic.csv` | Plan risk (congestion, bus routes) |
+| `flood_hotspots.csv` | Plan risk; flood watch per ward; pump hire spend near each spot |
+| `rainfall_daily.csv` | Heavy-rain context for fair scores; checks “Rain delayed work” remarks |
+| `tides.csv` | Big-tide calendar; heavy rain on a big-tide day = 44% more waterlogging complaints |
+| `wards.csv` / `wards.geojson` | Budgets, flood-prone index, repair crews (jobs per crew), map |
+| `complaints_sample_200.csv` | Not used: a 200-row copy of `complaints.csv` |
+
 ## Rebuild
 
 ```bash

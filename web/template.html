@@ -121,6 +121,8 @@ footer{margin:48px 0 40px;padding-top:16px;border-top:1px solid var(--line);colo
 </div>
 <div id="map" role="img" aria-label="Map of Mumbai wards shaded by share of repair money at issue"></div>
 <div class="legend" id="legend"></div>
+<div class="legend" id="roadLegend"></div>
+<p class="muted" style="margin:4px 0 0">Ward shapes are approximate (from the hackathon dataset), not official BMC boundaries.</p>
 
 <h2 id="ward" data-t="nav_ward">Your ward</h2>
 <select id="wardsel" aria-label="Ward"></select>
@@ -129,6 +131,10 @@ footer{margin:48px 0 40px;padding-top:16px;border-top:1px solid var(--line);colo
 <h2 data-t="budget_h">Budget used, by ward</h2>
 <p class="muted">Spend as a share of each ward's 2025 monsoon repair budget. Red bars went over budget. Hover a bar for amounts.</p>
 <div class="card"><div id="budgetChart" class="chart" style="height:620px"></div></div>
+
+<h2 id="flood">Flood watch: rain and tides</h2>
+<p class="muted" id="floodNote"></p>
+<div class="card" id="calendar"></div>
 
 <h2 id="people" data-t="people_h">What people are saying</h2>
 <p class="muted" id="peopleNote"></p>
@@ -198,7 +204,7 @@ function applyLang() {
   document.querySelectorAll('.lang button').forEach(b => b.classList.toggle('on', b.dataset.l === LANG));
 }
 document.querySelectorAll('.lang button').forEach(b => b.onclick = () => {
-  LANG = b.dataset.l; store.set('ftr-lang', LANG); applyLang(); renderWard($('wardsel').value);
+  LANG = b.dataset.l; store.set('ftr-lang', LANG); applyLang(); renderWard($('wardsel').value, false);
 });
 
 /* ---------- header numbers ---------- */
@@ -206,6 +212,7 @@ $('kpis').innerHTML = `
   <div class="kpi"><b>${inr(S.total_spend_inr)}</b><span>spent on ${S.jobs.toLocaleString('en-IN')} repair jobs (budget ${inr(S.total_budget_inr)})</span></div>
   <div class="kpi bad"><b>${inr(S.failed_30d_inr)}</b><span>spent on ${S.failed_30d_jobs} fixes that failed within 30 days</span></div>
   <div class="kpi bad"><b>${S.flagged_jobs}</b><span>jobs flagged for review (${inr(S.flagged_inr)} billed)</span></div>
+  <div class="kpi bad"><b>${S.connections.accidents_while_pending}</b><span>road accidents while a complaint waited for repair (${S.connections.pending_fatal} fatal, ${S.connections.pending_grievous} grievous)</span></div>
   <div class="kpi"><b>${S.social.unreported}</b><span>problems posted on social media with no matching complaint</span></div>`;
 
 /* ---------- work order and complaint detail (timeline + proof) ---------- */
@@ -320,12 +327,27 @@ if (window.L) {
   $('map').innerHTML = '<p class="muted" style="padding:16px">The map needs an internet connection to load.</p>';
 }
 
+/* ---------- roads of the selected ward (roads.geojson) ---------- */
+let roadLayer;
+const roadColor = p => p.flagged ? '#d03b3b' : p.failed ? '#ec835a' : '#2a78d6';
+function drawRoads(code, zoom) {
+  if (!map) return;
+  if (roadLayer) map.removeLayer(roadLayer);
+  const feats = D.roads_geo.features.filter(f => f.properties.ward_code === code);
+  roadLayer = L.geoJSON({type: 'FeatureCollection', features: feats}, {
+    style: f => ({color: roadColor(f.properties), weight: f.properties.emergency ? 7 : 4, opacity: .95}),
+    onEachFeature: (f, l) => { const p = f.properties; l.bindPopup(`<b>${esc(p.road_name)}</b> (${esc(p.road_id)})<br>${p.jobs} repair jobs, ${inr(p.spend)}<br>Failed fixes: ${p.failed} · Flagged jobs: ${p.flagged} · Open complaints: ${p.open}${p.emergency ? '<br><b>Ambulance road to an emergency hospital</b>' : ''}<br><a href="?q=${encodeURIComponent(p.road_name)}#search">See all jobs on this road →</a>`); }
+  }).addTo(map);
+  if (zoom) { const wl = wardLayer.getLayers().find(l => l.feature.properties.ward_code === code); if (wl) map.fitBounds(wl.getBounds(), {padding: [20, 20]}); }
+}
+if (window.L) $('roadLegend').innerHTML = 'Roads in the selected ward: <i style="background:#d03b3b"></i>has a flagged job <i style="background:#ec835a"></i>a fix failed <i style="background:#2a78d6"></i>other · thick line = ambulance road to an emergency hospital';
+
 /* ---------- ward view ---------- */
 D.wards.forEach(w => $('wardsel').add(new Option(`${w.ward_code}: ${w.ward_name}`, w.ward_code)));
-$('wardsel').onchange = () => renderWard($('wardsel').value);
-function selectWard(code) { $('wardsel').value = code; renderWard(code); $('ward').scrollIntoView({behavior: 'smooth'}); }
+$('wardsel').onchange = () => renderWard($('wardsel').value, true);
+function selectWard(code) { $('wardsel').value = code; renderWard(code, true); $('ward').scrollIntoView({behavior: 'smooth'}); }
 let donut;
-function renderWard(code) {
+function renderWard(code, zoom) {
   const w = byCode[code]; if (!w) return;
   const pct = Math.round(100 * w.spent_inr / w.budget_inr);
   const flags = D.flags.filter(f => f.ward_code === code);
@@ -343,6 +365,7 @@ function renderWard(code) {
       <div class="m" style="margin-top:8px"><i>Deadlines met</i><span>${vs(w.sla_met_pct, w.sla_expected_pct, true)}</span></div>
       <div class="m"><i>Fixes failed in 30 days</i><span>${vs(w.reopen_pct, w.reopen_expected_pct, false)}</span></div>
       <div class="m"><i>Billed on flagged jobs</i><span>${inr(w.flagged_inr)}</span></div>
+      <div class="m"><i>Jobs per repair crew</i><span class="${w.jobs_per_crew > 1.25 * w.city_jobs_per_crew ? 'no' : ''}">${w.jobs_per_crew} <span class="muted">(city median ${w.city_jobs_per_crew}; ${w.crews} crews)</span></span></div>
       <p class="muted">Context: flood-prone index ${w.low_lying_index} (0 to 1); ${w.heavy_rain_share_pct}% of jobs had heavy rain within a week. "Expected" is what this ward's mix of jobs, flooding and rain would normally give.</p>
     </div>
     <div class="card"><b>${tr('money_h')}</b>
@@ -361,6 +384,14 @@ function renderWard(code) {
     </div>
     <div class="muted">${t.recategorised ?? 0} complaints were filed under the wrong or a vague category and re-read from their text. ${t.jobs_without_complaint ?? 0} paid job(s) here have no complaint behind them.</div>
   </div>
+  <div class="card"><b>Safety and flood watch</b>
+    ${w.pending_accidents.length ? `<p style="margin:8px 0 4px"><b class="no">${w.pending_accidents.length}</b> road accident(s) happened while a citizen complaint about that road was waiting for repair:</p>
+    <div class="tbl"><table><thead><tr><th>Date</th><th>Road</th><th>Severity</th><th>Complaint waiting</th><th>Repair</th></tr></thead><tbody>
+    ${w.pending_accidents.map(p => `<tr><td>${p.date}</td><td>${esc(p.road)}</td><td class="${p.severity === 'Minor' ? '' : 'no'}">${esc(p.severity)} (${esc(p.vehicle)}, ${esc(p.cause)})</td><td>${p.days_waiting} days, since ${p.waiting_since}</td><td><a href="#search" data-wo="${p.work_order_id}">${p.work_order_id}</a> ${p.sla_met === 'N' ? '<span class="no">late</span>' : 'on time'}</td></tr>`).join('')}
+    </tbody></table></div>` : '<p class="muted">No road accidents while a complaint was waiting for repair.</p>'}
+    ${w.rain_excuses.length ? `<p style="margin:12px 0 4px"><b>${w.rain_excuses.length}</b> late job(s) say “Rain delayed work”, but no day of the job had more than ${S.connections.rain_excuse_mm} mm of rain: ${w.rain_excuses.map(e => `<a href="#search" data-wo="${e.work_order_id}">${e.work_order_id}</a> (${e.max_rain_mm} mm)`).join(', ')}. Worth asking for the reason, not proof of wrongdoing.</p>` : ''}
+    ${w.hotspots.length ? `<p style="margin:12px 0 4px">Flood spots in this ward:</p><ul>${w.hotspots.map(h => `<li><b>${esc(h.name)}</b>: floods above ${h.threshold_mm} mm/day (${h.flood_days} days this season${h.tide_sensitive ? `, ${h.flood_days_with_big_tide} of them on a big-tide day` : ''}); ${h.tide_sensitive ? '<span class="no">tide-sensitive</span>' : 'not tide-sensitive'}; ${h.pump_station ? 'pumping station nearby' : '<span class="no">no pumping station</span>'}; ${h.avg_depth_cm} cm deep for ~${h.recession_h} h. Pump hire nearby: ${h.pump_jobs} jobs, ${inr(h.pump_spend_inr)}.</li>`).join('')}</ul>` : '<p class="muted">No chronic flood spots listed in this ward.</p>'}
+  </div>
   <div class="card"><b>${tr('jobs_h')}</b> <span class="muted">(${flags.length}, largest first; click a work order for its timeline)</span>
     <div class="tbl"><table><thead><tr><th>Work order</th><th>Flag</th><th>Why</th><th>Contractor</th><th class="n">Billed</th></tr></thead><tbody id="flagrows"></tbody></table></div>
     ${flags.length > 8 ? '<button class="btn" id="more">Show all</button> ' : ''}${flags.length ? `<a class="btn" download="flags_${code.replace('/', '-')}.csv" href="${csv}">Download CSV for the ward office</a>` : ''}
@@ -374,7 +405,8 @@ function renderWard(code) {
   const wire = () => $('flagrows').querySelectorAll('[data-wo]').forEach(a => a.onclick = () => { $('detail').innerHTML = woCard(a.dataset.wo); $('results').innerHTML = ''; });
   $('flagrows').innerHTML = rows(false); wire();
   if ($('more')) $('more').onclick = () => { $('flagrows').innerHTML = rows(true); wire(); $('more').remove(); };
-  renderDonut(w); renderPeople(w);
+  $('wardview').querySelectorAll('.card [data-wo]').forEach(a => a.onclick = () => { $('detail').innerHTML = woCard(a.dataset.wo); $('results').innerHTML = ''; });
+  renderDonut(w); renderPeople(w); drawRoads(code, zoom);
 }
 
 /* ---------- charts ---------- */
@@ -411,6 +443,12 @@ function renderBudget() {
   ch.on('click', p => selectWard(rows[p.dataIndex].code));
   window.addEventListener('resize', () => { ch.resize(); donut && donut.resize(); });
 }
+
+/* ---------- flood watch (rainfall + tides + flood_hotspots) ---------- */
+{ const c = S.connections, te = c.tide_effect;
+  $('floodNote').textContent = `Waterlogging complaints average ${te.dry} a day on days without heavy rain, ${te.heavy_only} with heavy rain, and ${te.heavy_and_big_tide} when heavy rain falls on a big-tide day (high tide 4.5 m or more). ${c.tide_sensitive} of ${c.hotspots} chronic flood spots are tide-sensitive and ${c.tide_no_pump} of those have no pumping station. Unlike rain, tides are known months ahead, so these dates can be planned for.`;
+  $('calendar').innerHTML = `<b>Big-tide days, June to September 2025 (${D.calendar.length})</b><div class="funnel">${D.calendar.map(d => `<div><b style="font-size:15px">${d.date.slice(5)}</b>${d.height_m} m</div>`).join('')}</div>
+    <div class="muted">On these dates, put pumps in place in advance at tide-sensitive flood spots, avoid starting surface repairs in low-lying wards, and expect more complaints if rain is forecast.</div>`; }
 
 /* ---------- what people are saying ---------- */
 $('peopleNote').textContent = `${S.social.total} posts from X, WhatsApp groups and Instagram. ${S.social.placed} were matched to a ward. Each post is sorted as a problem report, sarcasm (a complaint said as a joke), a thank-you, or noise (greetings, unverified forwards). Posts are a signal of where to look, never proof on their own.`;
@@ -454,7 +492,7 @@ $('contractorCards').innerHTML = ranked.map(c => {
   <div class="m"><i>Fixes failed in 30 days</i><span class="${better(c.reopen_pct, c.reopen_expected_pct, false)}">${c.reopen_pct}% <i>(expected ${c.reopen_expected_pct}%)</i></span></div>
   <div class="m"><i>Typical cost vs rate card</i><span>${c.median_cost_ratio}×</span></div>
   <div class="m"><i>Over-billed / repeat bills</i><span>${f['Over-billed'] || 0} / ${f['Possible double billing'] || 0}</span></div>
-  <p class="muted" style="margin:8px 0 0">Context: ${c.low_lying_share_pct}% of jobs in highly flood-prone wards, ${c.heavy_rain_share_pct}% with heavy rain within a week, ${c.cold_mix_share_pct}% cold-mix patches.${c.evidence.length ? ' Evidence: ' + c.evidence.map(id => `<a href="#search" data-wo="${id}">${id}</a>`).join(', ') + '.' : ''}</p></div>`;
+  <p class="muted" style="margin:8px 0 0">Empanelled since ${c.empanelled_since}; listed for wards ${c.listed_wards.join(', ')}, but ${c.outside_listed_pct}% of its jobs were elsewhere (true of every contractor, so treated as a data note, not a flag).<br>Context: ${c.low_lying_share_pct}% of jobs in highly flood-prone wards, ${c.heavy_rain_share_pct}% with heavy rain within a week, ${c.cold_mix_share_pct}% cold-mix patches.${c.evidence.length ? ' Evidence: ' + c.evidence.map(id => `<a href="#search" data-wo="${id}">${id}</a>`).join(', ') + '.' : ''}</p></div>`;
 }).join('');
 $('contractorCards').querySelectorAll('[data-wo]').forEach(a => a.onclick = () => { $('detail').innerHTML = woCard(a.dataset.wo); $('results').innerHTML = ''; });
 
@@ -467,13 +505,16 @@ $('methodText').innerHTML = `
 <p><b>Next rupee.</b> Roads with open, unfixed complaints ranked by complaints and upvotes, flood spots, traffic and bus routes, road-condition accidents, hospital and school access, and past failed fixes. The method is the most durable one in the data for that issue (potholes: hot mix fails ${S.method_reopen_pct['Hot mix patch']}% of the time vs ${S.method_reopen_pct['Cold mix patch']}% for cold mix).</p>
 <p><b>Connecting the trail.</b> ${S.complaints.total.toLocaleString('en-IN')} complaints in English, Hinglish, Marathi and Hindi, placed on a road by GPS (${S.complaints.geocoded.gps.toLocaleString('en-IN')}) or by locality name and Devanagari alias (${S.complaints.geocoded.locality.toLocaleString('en-IN')}); ${S.complaints.recategorised.toLocaleString('en-IN')} re-read from their text because the category was wrong or vague; ${S.complaints.duplicates.toLocaleString('en-IN')} duplicates set aside; followed to work orders or marked never fixed.</p>
 <p><b>Social media.</b> ${S.social.total} posts sorted into problem reports (${S.social.kinds.report || 0}), sarcasm (${S.social.kinds.sarcasm || 0}), thank-yous (${S.social.kinds.thanks || 0}) and noise (${S.social.kinds.noise || 0}); ${S.social.unreported} problem posts had no complaint from that locality within 3 days.</p>
+<p><b>Connections across files.</b> Accidents are matched to complaints and work orders on the same road segment to find accidents that happened while a repair was waiting (${S.connections.accidents_while_pending}, of which ${S.connections.pending_sla_missed} were on jobs that also missed their deadline). “Rain delayed work” remarks on late jobs are checked against daily rainfall (${S.connections.rain_excuses} had no day above ${S.connections.rain_excuse_mm} mm). Jobs per repair crew explain missed deadlines (correlation ${S.connections.jobs_per_crew_vs_sla_corr}), so the report card shows crew load. In the next-rupee plan, some risks <i>multiply</i> the score rather than add to it: an ambulance road to an emergency hospital ×2, an accident while a complaint waited ×1.5; roads whose patches failed 3 or more times are listed for resurfacing.</p>
+<p><b>Tested and set aside:</b> rain in the days after a repair does not predict failure in this data; complaints do not cluster around high-tide hours; contractors' listed wards do not match where they work for any contractor.</p>
+<p class="muted">Data files used: ${S.files_used.join(', ')}. <code>complaints_sample_200.csv</code> is a 200-row copy of <code>complaints.csv</code> for quick prompting, so it is not used separately.</p>
 <p class="muted">Prototype note: the text sorting uses English, Hindi and Marathi keywords; with an API key, Claude does this step (it reads sarcasm far better) and writes the scorecard text (prompt in <code>prompts/</code>).</p>`;
 
 /* ---------- start ---------- */
 renderBudget();
 renderAppreciation();
 applyLang();
-renderWard('R/N'); $('wardsel').value = 'R/N';
+renderWard('R/N', false); $('wardsel').value = 'R/N';
 const qp = new URLSearchParams(location.search).get('q');
 if (qp) { $('q').value = qp; search(); }
 </script>

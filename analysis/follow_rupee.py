@@ -310,7 +310,80 @@ def lookups(wo, comp, flags):
 
 
 # --- 5. next rupee ----------------------------------------------------------------------------
-def next_rupee(x, wo, comp, flags):
+# --- cross-file connections -------------------------------------------------------------------
+RAIN_EXCUSE_MM = 15          # "Rain delayed work" but no day of the job had more than this
+
+
+def connections(x, wo, comp):
+    """Links across files that are not obvious from any one CSV."""
+    acc, rain, tides, flood, roads, wards, fac = x["acc"], x["rain"], x["tides"], x["flood"], x["roads"], x["wards"], x["fac"]
+    R = rain.groupby("date").rainfall_mm.max()
+
+    # 1. accidents (accidents.csv) on a road while a citizen complaint (complaints.csv) waited for its repair (work_orders.csv)
+    first = comp.set_index("complaint_id").received_at
+    wc = wo.dropna(subset=["linked_complaint_ids"])[["work_order_id", "road_id", "linked_complaint_ids", "completed_at",
+                                                      "sla_met", "contractor_name", "ward_code"]].copy()
+    wc["waiting_since"] = wc.linked_complaint_ids.str.split("|").apply(lambda ids: min(first.get(i, pd.NaT) for i in ids))
+    a = acc.assign(occurred=pd.to_datetime(acc.occurred_at))
+    a = a[a.probable_cause.str.contains("Pothole|Waterlog|Uneven", case=False, na=False)]
+    m = a.merge(wc, on="road_id", suffixes=("", "_wo"))
+    m = m[(m.occurred >= m.waiting_since) & (m.occurred <= m.completed_at)]
+    m = m.sort_values("waiting_since").drop_duplicates("accident_id")
+    m = m.merge(roads[["road_id", "road_name"]], on="road_id", how="left")
+    m["days_waiting"] = ((m.occurred - m.waiting_since).dt.total_seconds() / 86400).round(1)
+    pending = [dict(accident_id=r.accident_id, date=str(r.occurred)[:10], ward_code=r.ward_code_wo, road_id=r.road_id, road=r.road_name,
+                    severity=r.severity, vehicle=r.vehicle_type, cause=r.probable_cause, work_order_id=r.work_order_id,
+                    waiting_since=str(r.waiting_since)[:10], days_waiting=float(r.days_waiting), sla_met=r.sla_met,
+                    contractor=r.contractor_name.replace(" (synthetic)", "")) for r in m.itertuples()]
+
+    # 2. "Rain delayed work" remarks (work_orders.csv) checked against rainfall_daily.csv
+    rd = wo[wo.engineer_remark.str.contains("Rain delayed", na=False)].copy()
+    rd["max_rain_mm"] = rd.apply(lambda r: max(R.get(d, 0) for d in pd.date_range(r.assigned_at.normalize(), r.completed_at.normalize())), axis=1)
+    weak = rd[(rd.max_rain_mm < RAIN_EXCUSE_MM) & (rd.sla_met == "N")]
+    excuses = [dict(work_order_id=r.work_order_id, ward_code=r.ward_code, contractor=r.contractor_name.replace(" (synthetic)", ""),
+                    assigned=str(r.assigned_at)[:10], completed=str(r.completed_at)[:10], max_rain_mm=float(r.max_rain_mm))
+               for r in weak.itertuples()]
+
+    # 3. flood watch: rainfall x tides.csv x flood_hotspots.csv; pump spend nearby from work_orders.csv + roads.csv
+    T = tides.groupby("date").agg(height=("height_m", "max"), big=("big_tide_flag", lambda s: (s == "Y").any()))
+    rs = rain.pivot_table(index="date", columns="station", values="rainfall_mm")
+    big_days = T[T.big].index
+    roads_mid = roads.assign(mid_lat=(roads.start_lat + roads.end_lat) / 2, mid_lon=(roads.start_lon + roads.end_lon) / 2)
+    pumpish = wo[wo.repair_method.isin(["Dewatering pump deployed", "Pump + debris removal"])]
+    hotspots = []
+    for h in flood.itertuples():
+        st = "Colaba" if h.lat < 19.0 else "Santacruz"
+        heavy = rs[st] >= h.flood_threshold_mm_per_day
+        compound = int((heavy & heavy.index.isin(big_days)).sum()) if h.tide_sensitive == "Y" else 0
+        near = roads_mid[haversine_m(h.lat, h.lon, roads_mid.mid_lat, roads_mid.mid_lon) <= 600].road_id
+        spend = pumpish[pumpish.road_id.isin(near)]
+        hotspots.append(dict(name=h.name, ward_code=h.ward_code, tide_sensitive=h.tide_sensitive == "Y",
+                             pump_station=str(h.pumping_station_nearby).upper().startswith("Y"),
+                             threshold_mm=float(h.flood_threshold_mm_per_day), flood_days=int(heavy.sum()),
+                             flood_days_with_big_tide=compound, avg_depth_cm=float(h.avg_water_depth_cm),
+                             recession_h=float(h.avg_recession_hours), years_flagged=int(h.years_flagged_last_5),
+                             pump_jobs=len(spend), pump_spend_inr=int(spend.cost_inr.sum())))
+    calendar = [dict(date=str(d)[:10], height_m=float(T.at[d, "height"])) for d in big_days]
+    wl = comp[comp.issue_type == "Waterlogging"].received_at.dt.normalize().value_counts()
+    day = pd.DataFrame({"rain": R, "big": T.big}).fillna({"big": False})
+    day["wl"] = day.index.map(wl).fillna(0)
+    day["heavy"] = day.rain >= HEAVY_RAIN_MM
+    tide_effect = dict(heavy_only=round(float(day[day.heavy & ~day.big].wl.mean()), 1),
+                       heavy_and_big_tide=round(float(day[day.heavy & day.big].wl.mean()), 1),
+                       dry=round(float(day[~day.heavy].wl.mean()), 1))
+
+    # 4. crew capacity (wards.csv engineering_crews) vs deadlines met
+    load = wo.groupby("ward_code").agg(jobs=("work_order_id", "size")).join(wards.set_index("ward_code").engineering_crews)
+    load["jobs_per_crew"] = (load.jobs / load.engineering_crews).round(1)
+
+    # 5. emergency hospitals (facilities.csv) -> ambulance roads
+    em = fac[(fac.type == "Hospital") & fac.emergency_services.astype(str).str.upper().str.startswith("Y")]
+    return dict(pending=pending, excuses=excuses, hotspots=hotspots, calendar=calendar, tide_effect=tide_effect,
+                jobs_per_crew=load.jobs_per_crew.to_dict(), crews=load.engineering_crews.to_dict(),
+                emergency_roads=set(em.ambulance_entry_road), emergency_names=em.groupby("ambulance_entry_road").name.apply("; ".join).to_dict())
+
+
+def next_rupee(x, wo, comp, flags, cx):
     roads, flood, traffic, acc, fac, wards = x["roads"].copy(), x["flood"], x["traffic"], x["acc"], x["fac"], x["wards"]
     roads["mid_lat"] = (roads.start_lat + roads.end_lat) / 2
     roads["mid_lon"] = (roads.start_lon + roads.end_lon) / 2
@@ -331,12 +404,24 @@ def next_rupee(x, wo, comp, flags):
     r["hospital"] = r.hospital.fillna(False).astype(bool)
     r["reopen_history"] = r.road_id.map(wo[wo.reopened_within_30d == "Y"].groupby("road_id").size()).fillna(0).astype(int)
     norm = lambda s: (s - s.min()) / (s.max() - s.min() + 1e-9)
-    r["risk"] = (25 * norm(np.log1p(r.open_complaints + r.upvotes / 10))
-                 + 15 * (r.near_flood_hotspot != "")
-                 + 15 * norm(r.congestion_index_0_10.fillna(0)) + 5 * (r.bus_route == "Y")
-                 + 15 * norm(r.road_accidents + 2 * r.fatal_or_grievous)
-                 + 10 * r.hospital + 5 * (r.facilities != "")
-                 + 10 * norm(r.reopen_history)).round(1)
+    hs = {h["name"]: h for h in cx["hotspots"]}
+    r["emergency_road"] = r.road_id.isin(cx["emergency_roads"])
+    pend_roads = {}
+    for p in cx["pending"]:
+        pend_roads[p["road_id"]] = pend_roads.get(p["road_id"], 0) + 1
+    r["accidents_while_pending"] = r.road_id.map(pend_roads).fillna(0).astype(int)
+    r["tide_no_pump"] = r.near_flood_hotspot.map(lambda n: bool(n) and hs[n]["tide_sensitive"] and not hs[n]["pump_station"])
+    base = (25 * norm(np.log1p(r.open_complaints + r.upvotes / 10))
+            + 15 * (r.near_flood_hotspot != "") + 5 * r.tide_no_pump
+            + 15 * norm(r.congestion_index_0_10.fillna(0)) + 5 * (r.bus_route == "Y")
+            + 15 * norm(r.road_accidents + 2 * r.fatal_or_grievous)
+            + 10 * r.hospital + 5 * (r.facilities != "")
+            + 10 * norm(r.reopen_history))
+    # non-linear: some risks multiply the rest instead of adding to them
+    mult = np.where(r.emergency_road, 2.0, 1.0) * np.where(r.accidents_while_pending > 0, 1.5, 1.0)
+    raw = base * mult
+    r["risk"] = (100 * raw / raw.max()).round(1)
+    r["multiplier"] = mult
 
     # method: most durable proven method for the issue; cost from typical job size x rate card
     m = wo.groupby(["work_type", "repair_method"]).agg(n=("work_order_id", "size"),
@@ -352,12 +437,18 @@ def next_rupee(x, wo, comp, flags):
     r.loc[r.under_dlp == "Y", ["est_cost_inr"]] = 0
     r["action"] = np.where(r.under_dlp == "Y", "Send to original contractor (under DLP, ₹0 to BMC)",
                            "Fix with " + r.method.str.lower())
+    # repeated failures: patching keeps failing, so flag the segment for resurfacing in the capital budget
+    surface = r.issue_type.isin(list(SURFACE_TYPES))
+    r.loc[surface & (r.reopen_history >= 3) & (r.under_dlp != "Y"), "action"] = (
+        r.action + "; failed " + r.reopen_history.astype(str) + "x before, so list it for resurfacing")
     def why(row):
         bits = [f"{row.open_complaints} open complaint{'s' if row.open_complaints != 1 else ''}"]
-        if row.near_flood_hotspot: bits.append(f"near {row.near_flood_hotspot} flood spot")
+        if row.emergency_road: bits.append(f"ambulance road to {cx['emergency_names'].get(row.road_id, 'an emergency hospital')} (priority x2)")
+        if row.accidents_while_pending: bits.append(f"{row.accidents_while_pending} accident(s) while a complaint waited for repair (priority x1.5)")
+        if row.near_flood_hotspot: bits.append(f"near {row.near_flood_hotspot} flood spot" + (" (tide-sensitive, no pump)" if row.tide_no_pump else ""))
         if row.road_accidents: bits.append(f"{row.road_accidents} road-condition accident{'s' if row.road_accidents != 1 else ''}")
-        if row.hospital: bits.append("ambulance route to a hospital")
-        elif row.facilities: bits.append("access road to a school")
+        if row.hospital and not row.emergency_road: bits.append("access road to a hospital")
+        elif row.facilities and not row.emergency_road: bits.append("access road to a school")
         if row.congestion_index_0_10 and row.congestion_index_0_10 >= 7: bits.append(f"congestion {row.congestion_index_0_10:.0f}/10")
         if row.reopen_history: bits.append(f"fixed before and failed {row.reopen_history}x")
         return "; ".join(bits)
@@ -406,16 +497,41 @@ def actions(w, f, plan, tr):
     return a
 
 
-def ward_trail(x, wo, flags, comp, plans, trails):
+def more_actions(w, pend, exc, hot, jpc, city_jpc):
+    a = []
+    serious = [p for p in pend if p["severity"] in ("Fatal", "Grievous")]
+    if pend:
+        a.append(f"Review {len(pend)} road accident(s) that happened while a citizen complaint was waiting for repair"
+                 + (f", {len(serious)} of them fatal or grievous" if serious else "") + ". Find out why those repairs waited.")
+    if exc:
+        a.append(f"Ask for evidence on {len(exc)} late job(s) explained as 'Rain delayed work' when no day of the job had more than {RAIN_EXCUSE_MM} mm of rain.")
+    watch = [h for h in hot if h["tide_sensitive"] and not h["pump_station"]]
+    if watch:
+        a.append("On big-tide days with heavy rain, put pumps at " + ", ".join(h["name"] for h in watch)
+                 + " in advance (tide-sensitive, no pumping station).")
+    if jpc and city_jpc and jpc > 1.25 * city_jpc:
+        a.append(f"Ask the zone for more repair crews: {jpc:.0f} jobs per crew here against {city_jpc:.0f} across the city. Late repairs here are partly a capacity problem.")
+    return a
+
+
+def ward_trail(x, wo, flags, comp, plans, trails, cx):
     wards = x["wards"]
     out = []
     fl = flags.drop_duplicates("work_order_id")
+    city_jpc = float(np.median(list(cx["jobs_per_crew"].values())))
     for w in wards.itertuples():
         g = wo[wo.ward_code == w.ward_code]
         f = flags[flags.ward_code == w.ward_code]
         c = comp[comp.g_ward == w.ward_code]
         tr = trails.get(w.ward_code, {})
+        pend = [p for p in cx["pending"] if p["ward_code"] == w.ward_code]
+        exc = [e for e in cx["excuses"] if e["ward_code"] == w.ward_code]
+        hot = [h for h in cx["hotspots"] if h["ward_code"] == w.ward_code]
+        jpc = cx["jobs_per_crew"].get(w.ward_code)
         out.append(dict(
+            pending_accidents=pend, rain_excuses=exc, hotspots=hot,
+            crews=int(cx["crews"].get(w.ward_code, 0)), jobs_per_crew=jpc, city_jobs_per_crew=city_jpc,
+            extra_actions=more_actions(w, pend, exc, hot, jpc, city_jpc),
             reopen_pct=round(100 * (g.reopened_within_30d == "Y").mean()), reopen_expected_pct=round(100 * g.exp_reopen.mean()),
             sla_expected_pct=round(100 * g.exp_sla.mean()), heavy_rain_share_pct=round(100 * g.heavy_rain_after.mean()),
             trail=tr, actions=actions(w, f, plans[w.ward_code], tr),
@@ -442,9 +558,31 @@ def main():
     wo = add_context(x, wo)
     sc = scorecards(x, wo, flags)
     comp, cstats = connect(x, wo)
-    plans = next_rupee(x, wo, comp, flags)
+    cx = connections(x, wo, comp)
+    plans = next_rupee(x, wo, comp, flags, cx)
     trails = trail(wo, comp)
-    wards = ward_trail(x, wo, flags, comp, plans, trails)
+    wards = ward_trail(x, wo, flags, comp, plans, trails, cx)
+    for w in wards:
+        w["actions"] = w["actions"] + w.pop("extra_actions")
+    # contractors.csv: context only (80% of jobs fall outside the listed wards for every contractor,
+    # with no difference in failure rate, so it is a data-quality note, not an audit flag)
+    con = x["con"].set_index("contractor_id")
+    listed = {k: {s.strip() for s in v.split(";")} for k, v in con.active_wards.items()}
+    out_share = wo.assign(o=[wd not in listed[c] for wd, c in zip(wo.ward_code, wo.contractor_id)]).groupby("contractor_id").o.mean()
+    sc["empanelled_since"] = sc.contractor_id.map(con.empanelled_since)
+    sc["listed_wards"] = sc.contractor_id.map(lambda c: sorted(listed[c]))
+    sc["outside_listed_pct"] = sc.contractor_id.map((100 * out_share).round())
+    # roads.geojson: per-segment status for the map
+    rs = wo.groupby("road_id").agg(jobs=("work_order_id", "size"), spend=("cost_inr", "sum"),
+                                    failed=("reopened_within_30d", lambda s: int((s == "Y").sum())))
+    rs["flagged"] = rs.index.map(flags.drop_duplicates("work_order_id").groupby("road_id").size()).fillna(0).astype(int)
+    rs["open"] = rs.index.map(comp[comp.never_fixed].groupby("road_id").size()).fillna(0).astype(int)
+    road_geo = json.loads((D / "roads.geojson").read_text())
+    for f in road_geo["features"]:
+        s = rs.loc[f["properties"]["road_id"]] if f["properties"]["road_id"] in rs.index else None
+        f["properties"].update(dict(jobs=int(s.jobs), spend=int(s.spend), failed=int(s.failed), flagged=int(s.flagged), open=int(s.open))
+                               if s is not None else dict(jobs=0, spend=0, failed=0, flagged=0, open=0))
+        f["properties"]["emergency"] = f["properties"]["road_id"] in cx["emergency_roads"]
     W, C = lookups(wo, comp, flags)
     soc, soc_stats = social(x, comp)
     for w in wards:
@@ -478,8 +616,23 @@ def main():
     summary["flag_confidence"] = flags.confidence.value_counts().to_dict()
     summary["social"] = soc_stats
     summary["spend_by_method"] = {k: int(v) for k, v in wo.groupby("repair_method").cost_inr.sum().sort_values(ascending=False).items()}
+    pend = cx["pending"]
+    summary["connections"] = dict(
+        accidents_while_pending=len(pend), pending_fatal=sum(p["severity"] == "Fatal" for p in pend),
+        pending_grievous=sum(p["severity"] == "Grievous" for p in pend), pending_sla_missed=sum(p["sla_met"] == "N" for p in pend),
+        rain_excuses=len(cx["excuses"]), rain_excuse_mm=RAIN_EXCUSE_MM,
+        tide_effect=cx["tide_effect"], big_tide_days=len(cx["calendar"]),
+        hotspots=len(cx["hotspots"]), tide_sensitive=sum(h["tide_sensitive"] for h in cx["hotspots"]),
+        tide_no_pump=sum(h["tide_sensitive"] and not h["pump_station"] for h in cx["hotspots"]),
+        emergency_roads=len(cx["emergency_roads"]),
+        jobs_per_crew_vs_sla_corr=round(float(pd.Series(cx["jobs_per_crew"]).corr(
+            wo.groupby("ward_code").sla_met.apply(lambda s: (s == "Y").mean()))), 2),
+        outside_listed_wards_pct=round(float(100 * np.mean([wd not in listed[c] for wd, c in zip(wo.ward_code, wo.contractor_id)]))),
+    )
+    summary["files_used"] = sorted(p.name for p in D.glob("*.csv") if p.name != "complaints_sample_200.csv") + ["roads.geojson", "wards.geojson"]
     data = dict(summary=summary, contractors=json.loads(sc.to_json(orient="records")), wards=wards,
-                flags=json.loads(flag_rows.to_json(orient="records")), W=W, C=C, heat=points, geo=geo)
+                flags=json.loads(flag_rows.to_json(orient="records")), W=W, C=C, heat=points, geo=geo,
+                roads_geo=road_geo, calendar=cx["calendar"], pending=pend)
     (OUT / "follow_the_rupee.json").write_text(json.dumps(data, ensure_ascii=False, indent=1, default=str))
     print(json.dumps(summary, indent=1, ensure_ascii=False, default=str))
     print(sc[["contractor", "jobs", "billed_inr", "sla_met_pct", "sla_expected_pct", "reopen_pct",
