@@ -2,12 +2,14 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 // Output of analysis/follow_rupee.py (audit, fair scorecards, trail, next-rupee plan, social, connections).
-// Rebuild with: python analysis/follow_rupee.py   (from the repo root)
-const FILE = path.join(process.cwd(), "..", "out", "follow_the_rupee.json");
+// Rebuild with: python analysis/follow_rupee.py   (from team41/)
+const FILE = path.join(process.cwd(), "data", "follow_the_rupee.json");
 
 export type Flag = {
   work_order_id: string; ward_code: string; road_name: string; contractor_name: string;
   flag: string; confidence: "High" | "Medium"; reason: string; cost_inr: number; inr_at_risk: number;
+  method: string; work_type: string; ratio?: number | null; expected_inr?: number | null;
+  twin?: string | null; gap_days?: number | null; resurfaced?: string | null;
 };
 export type PlanItem = {
   road_id: string; road: string; risk: number; issue: string; action: string;

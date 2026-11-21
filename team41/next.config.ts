@@ -6,6 +6,10 @@ const nextConfig: NextConfig = {
     agentFeedback: true,
   },
   cacheComponents: true,
+  // Pages read CSV/JSON from team41/data at runtime; ship those files with every route on Vercel.
+  outputFileTracingIncludes: {
+    "/**": ["./data/**/*"],
+  },
   partialPrefetching: true,
   turbopack: {
     rules: {

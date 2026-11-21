@@ -6,7 +6,11 @@ import { useEffect, useState } from "react";
 export default function EndorseButton({ id }: { id: string }) {
   const [done, setDone] = useState(false);
   useEffect(() => {
-    try { setDone(localStorage.getItem(`ftr-endorsed-${id}`) === "1"); } catch { /* storage blocked */ }
+    // Deferred so we don't set state synchronously in the effect (post-hydration read).
+    const t = window.setTimeout(() => {
+      try { setDone(localStorage.getItem(`ftr-endorsed-${id}`) === "1"); } catch { /* storage blocked */ }
+    }, 0);
+    return () => window.clearTimeout(t);
   }, [id]);
   return (
     <button

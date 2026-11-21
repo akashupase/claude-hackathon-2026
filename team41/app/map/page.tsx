@@ -2,8 +2,14 @@ import { Suspense } from "react";
 import { Bricolage_Grotesque, Newsreader } from "next/font/google";
 import { connection } from "next/server";
 import SiteHeader from "@/components/site-header";
+import {
+  loadAuditFlags,
+  loadContractorScores,
+  loadWardSimulator,
+} from "./audit";
 import { loadRoads, loadWardOutlines, loadWards } from "./data";
-import WardMap from "./WardMap";
+import MapExperience from "./MapExperience";
+import { loadTrailIndex } from "./trail";
 
 const bricolage = Bricolage_Grotesque({
   subsets: ["latin"],
@@ -18,59 +24,57 @@ const newsreader = Newsreader({
 
 export const metadata = {
   title: "Ward map · Follow the Rupee",
-  description: "Mumbai BMC ward boundaries (approximate)",
+  description:
+    "Mumbai BMC ward map with an audit simulation: recoverable rupees, contractor fairness and a monsoon spend simulator (synthetic data)",
 };
 
-const MAIN =
-  "flex min-h-0 flex-1 flex-col gap-4 px-5 pb-5 pt-5 sm:px-[max(20px,6%)] sm:pt-7";
-const TITLE =
-  "font-[family-name:var(--font-bricolage)] text-[clamp(28px,4.2vw,52px)] font-semibold leading-[.98] tracking-[-.035em]";
-const CARD =
-  "relative min-h-0 flex-1 overflow-hidden rounded-2xl bg-white shadow-[0_0_0_1px_rgba(43,48,51,.14),0_18px_40px_-24px_rgba(0,0,0,.35)]";
+// Static shell — the data-dependent body streams in via Suspense so the route
+// can still prerender its frame (Next 16 blocking-prerender-dynamic).
+export default function MapPage() {
+  return (
+    <div
+      className={`${bricolage.variable} ${newsreader.variable} flex min-h-dvh w-full flex-col gap-3 bg-[#faf3eb] font-[family-name:var(--font-newsreader)] text-[#2b3033] lg:h-dvh lg:min-h-0`}
+    >
+      <SiteHeader current="map" />
+      <Suspense fallback={<MapFallback />}>
+        <MapBody />
+      </Suspense>
+    </div>
+  );
+}
 
-// Reads the data files per request, so it streams in behind <Suspense>.
-async function MapContent() {
+async function MapBody() {
+  // Read the data files per request rather than at build time.
   await connection();
-  const [wards, outlines, roads] = await Promise.all([
-    loadWards(),
-    loadWardOutlines(),
-    loadRoads(),
-  ]);
+  const [wards, outlines, roads, audit, scores, simulator, trail] =
+    await Promise.all([
+      loadWards(),
+      loadWardOutlines(),
+      loadRoads(),
+      loadAuditFlags(),
+      loadContractorScores(),
+      loadWardSimulator(),
+      loadTrailIndex(),
+    ]);
 
   return (
-    <main className={MAIN}>
-      <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-2">
-        <h1 className={TITLE}>Mumbai, ward by ward.</h1>
-        <p className="max-w-[27.5em] text-[17px] leading-[1.5] text-[#4a4f52]">
-          <span className="text-[#ee7454]">{wards.length}</span> BMC wards,
-          drawn from approximate boundaries. Click one to see its numbers.
-        </p>
-      </div>
-      <div className={CARD}>
-        <WardMap wards={wards} outlines={outlines} roads={roads} />
-      </div>
-    </main>
+    <MapExperience
+      wards={wards}
+      outlines={outlines}
+      roads={roads}
+      audit={audit}
+      scores={scores}
+      simulator={simulator}
+      trail={trail}
+    />
   );
 }
 
 function MapFallback() {
   return (
-    <main className={MAIN}>
-      <h1 className={TITLE}>Mumbai, ward by ward.</h1>
-      <div className={CARD} aria-busy="true" />
+    <main className="flex min-h-0 flex-1 flex-col gap-4 px-5 pb-5 pt-2 sm:px-[max(20px,6%)] lg:flex-row">
+      <div className="h-[120px] flex-none animate-pulse rounded-xl bg-white/70" />
+      <div className="h-[46dvh] flex-1 animate-pulse rounded-2xl bg-white/70" />
     </main>
-  );
-}
-
-export default function MapPage() {
-  return (
-    <div
-      className={`${bricolage.variable} ${newsreader.variable} flex h-dvh w-full flex-col bg-[#faf3eb] font-[family-name:var(--font-newsreader)] text-[#2b3033]`}
-    >
-      <SiteHeader current="map" />
-      <Suspense fallback={<MapFallback />}>
-        <MapContent />
-      </Suspense>
-    </div>
   );
 }
