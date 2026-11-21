@@ -152,7 +152,7 @@ export default function TrailPanel({
   }
 
   return (
-    <div ref={listRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5">
+    <div ref={listRef} className="min-h-0 flex-1 space-y-2 overscroll-contain overflow-y-auto pr-0.5">
       {roadFilterId && (
         <p className="rounded-lg bg-[#fdeae4] px-3 py-1.5 text-[12px] text-[#b23a1d]">
           Filtered to road {roadFilterId} ·{" "}

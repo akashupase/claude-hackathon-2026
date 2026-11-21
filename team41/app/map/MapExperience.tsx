@@ -211,7 +211,7 @@ export default function MapExperience({
             className="absolute inset-0 bg-[rgba(43,48,51,.45)]"
             onClick={() => setSheetOpen(false)}
           />
-          <div className="sheet-panel absolute inset-x-0 bottom-0 flex max-h-[88dvh] flex-col rounded-t-2xl bg-[#faf3eb] shadow-[0_-12px_40px_rgba(0,0,0,.35)]">
+          <div className="sheet-panel absolute inset-x-0 bottom-0 flex h-[92dvh] flex-col rounded-t-2xl bg-[#faf3eb] shadow-[0_-12px_40px_rgba(0,0,0,.35)]">
             <div
               className="mx-auto mt-2 h-1 w-10 flex-none rounded-full bg-[#c9c2ba]"
               aria-hidden="true"
@@ -233,7 +233,7 @@ export default function MapExperience({
                 ×
               </button>
             </div>
-            <div className="flex min-h-[45dvh] flex-1 flex-col overflow-hidden px-4 pb-6 pt-3">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-2">
               {panelBody}
             </div>
           </div>
