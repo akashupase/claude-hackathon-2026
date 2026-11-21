@@ -1,0 +1,13 @@
+"""Plain-language contractor scorecards written by Claude from out/follow_the_rupee.json
+(prompt: prompts/contractor_scorecard.md). Keyed by contractor name."""
+
+SCORECARD_TEXT = {
+    "Deccan Paving Solutions (synthetic)": "The most durable work in the city: only 9% of its repairs broke again within a month, against about 24% expected for the same kind of jobs. It met its deadline on 60% of jobs, better than the 49% expected, and its prices sit right on the rate card. To improve: explain the 5 repeat jobs billed with no complaint behind them.",
+    "Sahyadri Infra Works (synthetic)": "Fast and long-lasting. It met 62% of deadlines (50% expected) and only 14% of its fixes failed within 30 days (25% expected). Prices are close to the rate card. To improve: 8 jobs were billed a few days after an identical job on the same road with no complaint linked; these need paperwork showing they were separate work.",
+    "Mithi Infra Projects (synthetic)": "Repairs hold up well: 12% failed within a month, about half the expected rate. Deadlines are about average. To improve: 10 jobs were billed at more than 1.35 times the rate card and should be checked against measurements on site.",
+    "Konkan Roadcon Pvt Ltd (synthetic)": "The largest contractor by money billed. Its speed and durability are close to what is expected for its mix of jobs (46% of deadlines met, 27% of fixes failed). To improve: a few over-billed and repeat jobs, and slightly more fixes failing than expected.",
+    "Shivneri Construction (synthetic)": "Average on both speed and durability for the work it was given. To improve: 8 jobs look like repeat billing (same road, same method, a few days apart, no complaint), which is a high share for its size.",
+    "Western Coast Asphalt Co (synthetic)": "Prices are mostly fair, but its repairs do not last: 39% failed within 30 days, against 25% expected for the same methods, wards and rain. That means the city paid twice for many roads. To improve: durability, starting with the roads where its patches failed more than once.",
+    "Arabian Sea Engineering (synthetic)": "Slower than expected (44% of deadlines met, 53% expected) and less durable (32% of fixes failed, 25% expected). 38 jobs were billed at more than 1.35 times the rate card. To improve: billing accuracy first, then repair quality.",
+    "Mahalaxmi Civil Contractors (synthetic)": "The weakest record on this data. It met 39% of deadlines (52% expected), 38% of its fixes failed within a month (25% expected), and 44 jobs were billed well above the rate card, plus 10 possible repeat bills. To improve: every flagged job should be checked before further payments.",
+}

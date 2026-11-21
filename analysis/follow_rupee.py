@@ -31,7 +31,7 @@ def load():
         con=t("contractors.csv"), comp=t("complaints.csv", parse_dates=["received_at", "resolved_at"]),
         rain=t("rainfall_daily.csv", parse_dates=["date"]), tides=t("tides.csv", parse_dates=["date"]),
         flood=t("flood_hotspots.csv"), traffic=t("traffic.csv"), acc=t("accidents.csv"),
-        fac=t("facilities.csv"), loc=t("localities.csv"),
+        fac=t("facilities.csv"), loc=t("localities.csv"), social=t("social_posts.csv"),
     )
 
 
@@ -241,11 +241,68 @@ def trail(wo, comp):
     return out
 
 
+POST_KINDS = [  # (kind, words) checked in order; social posts are a signal, never proof
+    ("noise", ["unverified", "fwd as received", "good morning", "gm all", "school band"]),
+    ("sarcasm", ["swimming pool", "😂", "mast ", "waah", "congratulations bmc"]),
+    ("thanks", ["thank", "thanks", "dhanyavad", "धन्यवाद", "आभार", "shukriya", "👏"]),
+    ("report", ["pothole", "gaddha", "gadda", "खड्डा", "खड्डे", "गड्ढा", "manhole", "paani", "pani", "पाणी", "पानी",
+                "flood", "waterlog", "drain", "nala", "cave", "open", "broken", "phir se", "again"]),
+]
+
+
+def social(x, comp):
+    s, loc = x["social"].copy(), x["loc"]
+    def kind(t):
+        t = str(t).lower()
+        for k, words in POST_KINDS:
+            if any(w in t for w in words):
+                return k
+        return "noise"
+    s["kind"] = s.text.apply(kind)
+    names = []
+    for r in loc.itertuples():
+        for a in [r.locality] + (str(r.aliases).split(";") if isinstance(r.aliases, str) else []):
+            a = a.strip()
+            if len(a) > 3:
+                names.append((a.lower(), r.locality, r.ward_code))
+    names.sort(key=lambda n: -len(n[0]))
+    def place(t):
+        t = str(t).lower()
+        return next(((l, w) for a, l, w in names if a in t), (None, None))
+    s[["locality", "ward_code"]] = s.text.apply(lambda t: pd.Series(place(t)))
+    s["posted"] = pd.to_datetime(s.posted_at)
+    # a problem post with no complaint from the same locality within 3 days = BMC may never have heard of it
+    comp_loc = comp.assign(loc_lc=comp.locality_text.str.lower())
+    def unreported(r):
+        if r.kind not in ("report", "sarcasm") or not r.locality:
+            return False
+        near = comp_loc[(comp_loc.g_ward == r.ward_code) & (comp_loc.loc_lc.str.contains(r.locality.lower(), regex=False, na=False))]
+        return not ((near.received_at - r.posted).abs() <= pd.Timedelta(days=3)).any()
+    s["unreported"] = s.apply(unreported, axis=1)
+    out = {}
+    for w, g in s[s.ward_code.notna()].groupby("ward_code"):
+        top = g[g.kind != "noise"].sort_values("likes_or_forwards", ascending=False).head(4)
+        out[w] = dict(posts=len(g), reports=int((g.kind == "report").sum()), sarcasm=int((g.kind == "sarcasm").sum()),
+                      thanks=int((g.kind == "thanks").sum()), noise=int((g.kind == "noise").sum()),
+                      unreported=int(g.unreported.sum()), reach=int(g.likes_or_forwards.sum()),
+                      top=[dict(kind=r.kind, source=r.source, text=r.text, reach=int(r.likes_or_forwards),
+                                date=str(r.posted_at)[:10], unreported=bool(r.unreported)) for r in top.itertuples()])
+    stats = dict(total=len(s), kinds=s.kind.value_counts().to_dict(), placed=int(s.ward_code.notna().sum()),
+                 unreported=int(s.unreported.sum()), sources=s.source.value_counts().to_dict())
+    return out, stats
+
+
 def lookups(wo, comp, flags):
     fl = flags.groupby("work_order_id").flag.apply(lambda s: ", ".join(sorted(set(s))))
+    first = comp.dropna(subset=["work_order_id"]).sort_values("received_at").drop_duplicates("work_order_id").set_index("work_order_id")
+    t = lambda v: str(v)[:16] if pd.notna(v) else ""
     W = {r.work_order_id: [r.ward_code, r.road_name, r.repair_method, r.contractor_name.replace(" (synthetic)", ""),
                            int(r.cost_inr), str(r.completed_at)[:10], r.sla_met, r.reopened_within_30d,
-                           fl.get(r.work_order_id, "")] for r in wo.itertuples()}
+                           fl.get(r.work_order_id, ""),
+                           # timeline: first complaint, assigned, started, completed; proof = photo description
+                           t(first.received_at.get(r.work_order_id)), t(r.assigned_at), t(r.work_started_at), t(r.completed_at),
+                           str(first.photo_description.get(r.work_order_id, "") or ""), r.sla_hours, str(r.engineer_remark or "")]
+         for r in wo.itertuples()}
     C = {r.complaint_id: [r.g_ward if isinstance(r.g_ward, str) else "", str(r.received_at)[:10], r.issue_type,
                           r.language, r.status, str(r.description)[:160], r.work_order_id if isinstance(r.work_order_id, str) else ""]
          for r in comp.itertuples()}
@@ -389,6 +446,19 @@ def main():
     trails = trail(wo, comp)
     wards = ward_trail(x, wo, flags, comp, plans, trails)
     W, C = lookups(wo, comp, flags)
+    soc, soc_stats = social(x, comp)
+    for w in wards:
+        w["social"] = soc.get(w["ward_code"], {})
+        w["money_at_issue_pct"] = round(100 * (w["flagged_inr"] + w["failed_30d_inr"]) / max(w["spent_inr"], 1))
+        g = wo[wo.ward_code == w["ward_code"]]
+        flagged_ids = set(flags[flags.ward_code == w["ward_code"]].work_order_id)
+        fl_m = g.work_order_id.isin(flagged_ids)
+        w["outcome_inr"] = dict(flagged=int(g[fl_m].cost_inr.sum()),
+                                failed=int(g[~fl_m & (g.reopened_within_30d == "Y")].cost_inr.sum()),
+                                held=int(g[~fl_m & (g.reopened_within_30d == "N")].cost_inr.sum()))
+    heat = comp[comp.g_lat.notna()][["g_lat", "g_lon", "never_fixed"]]
+    points = [[round(a, 4), round(b, 4), int(c)] for a, b, c in heat.itertuples(index=False)]
+    geo = json.loads((D / "wards.geojson").read_text())
     flags.sort_values(["flag", "inr_at_risk"], ascending=[True, False]).to_csv(OUT / "audit_flags.csv", index=False)
     fl_u = flags.drop_duplicates("work_order_id")
     summary = dict(
@@ -406,8 +476,10 @@ def main():
     flag_rows = flags.sort_values("inr_at_risk", ascending=False)[
         ["work_order_id", "ward_code", "road_name", "contractor_name", "flag", "confidence", "reason", "cost_inr", "inr_at_risk"]]
     summary["flag_confidence"] = flags.confidence.value_counts().to_dict()
+    summary["social"] = soc_stats
+    summary["spend_by_method"] = {k: int(v) for k, v in wo.groupby("repair_method").cost_inr.sum().sort_values(ascending=False).items()}
     data = dict(summary=summary, contractors=json.loads(sc.to_json(orient="records")), wards=wards,
-                flags=json.loads(flag_rows.to_json(orient="records")), W=W, C=C)
+                flags=json.loads(flag_rows.to_json(orient="records")), W=W, C=C, heat=points, geo=geo)
     (OUT / "follow_the_rupee.json").write_text(json.dumps(data, ensure_ascii=False, indent=1, default=str))
     print(json.dumps(summary, indent=1, ensure_ascii=False, default=str))
     print(sc[["contractor", "jobs", "billed_inr", "sla_met_pct", "sla_expected_pct", "reopen_pct",

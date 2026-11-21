@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Follow the Rupee</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+<style>
+:root{--ink:#1b1f24;--soft:#5a636e;--line:#e3e6ea;--bg:#fcfcfb;--card:#ffffff;--tint:#f3f5f6;--accent:#0f766e;
+--good:#0ca30c;--serious:#ec835a;--critical:#d03b3b;--warn:#b45309;--chip:#eef2f3;--blue:#2a78d6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI","Noto Sans Devanagari",sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:0 16px}
+nav.top{position:sticky;top:0;z-index:1000;background:rgba(252,252,251,.96);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+nav.top .wrap{display:flex;gap:4px 14px;align-items:center;flex-wrap:wrap;padding-top:8px;padding-bottom:8px}
+nav.top a{color:var(--soft);text-decoration:none;font-size:14px;font-weight:600}
+nav.top a:hover{color:var(--accent)}
+nav.top .brand{color:var(--ink);font-weight:700;margin-right:auto}
+.lang button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--card);border-radius:6px;padding:3px 8px;cursor:pointer}
+.lang button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+header{padding:28px 0 18px}
+h1{font-size:clamp(28px,5vw,40px);margin:0 0 6px;letter-spacing:-.02em}
+h2{font-size:22px;margin:44px 0 6px;scroll-margin-top:60px}
+.sub{color:var(--soft);margin:0}
+.warn{background:#fff7ed;border:1px solid #fed7aa;color:#7c2d12;padding:10px 14px;border-radius:8px;font-size:14px;margin:14px 0 0}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:16px 0 0}
+.kpi{background:var(--tint);border-radius:10px;padding:14px 16px}
+.kpi b{display:block;font-size:26px;letter-spacing:-.01em}
+.kpi span{color:var(--soft);font-size:14px}
+.kpi.bad b{color:var(--critical)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin:14px 0}
+.muted{color:var(--soft);font-size:14px}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
+.two>.card{margin:0}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--soft);font-weight:600} td.n{text-align:right;white-space:nowrap}
+.tbl{overflow-x:auto}
+.chip{display:inline-block;background:var(--chip);border-radius:999px;padding:1px 9px;font-size:12px;white-space:nowrap}
+.chip.ob{background:#fde8e1;color:#9a3412}.chip.db{background:#fef3c7;color:#92400e}.chip.dlp{background:#e0f2fe;color:#075985}
+.chip.report{background:#fde8e1;color:#9a3412}.chip.sarcasm{background:#fef3c7;color:#92400e}.chip.thanks{background:#dcfce7;color:#166534}
+.conf{font-size:12px;font-weight:600}.conf.High{color:var(--critical)}.conf.Medium{color:var(--warn)}
+.m{display:flex;justify-content:space-between;gap:10px;font-size:14px;border-top:1px dashed var(--line);padding:5px 0}
+.m i{font-style:normal;color:var(--soft)}
+.ok{color:#15803d}.no{color:var(--critical)}
+.bar{height:10px;background:var(--chip);border-radius:6px;overflow:hidden;margin:6px 0 2px}
+.bar i{display:block;height:100%;background:var(--blue)}.bar i.over{background:var(--critical)}
+select,input{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;max-width:100%}
+.searchrow{display:flex;gap:8px;flex-wrap:wrap}.searchrow input{flex:1 1 260px;min-width:0}
+.btn{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:7px 12px;cursor:pointer;color:var(--ink);text-decoration:none;display:inline-block}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.results button{display:block;width:100%;text-align:left;font:inherit;font-size:14px;background:none;border:0;border-bottom:1px solid var(--line);padding:8px 4px;cursor:pointer}
+.results button:hover{background:var(--tint)}
+#map{height:460px;border-radius:12px;border:1px solid var(--line)}
+.legend{display:flex;gap:4px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--soft);margin-top:8px}
+.legend i{display:inline-block;width:28px;height:10px;border-radius:2px}
+.maptools{display:flex;gap:14px;flex-wrap:wrap;font-size:14px;margin:8px 0}
+.timeline{list-style:none;padding:0;margin:10px 0 0;border-left:2px solid var(--line)}
+.timeline li{position:relative;padding:0 0 12px 16px}
+.timeline li::before{content:"";position:absolute;left:-7px;top:5px;width:12px;height:12px;border-radius:50%;background:var(--blue);border:2px solid var(--card)}
+.timeline li.good::before{background:var(--good)}.timeline li.bad::before{background:var(--critical)}.timeline li.wait::before{background:#9aa3ad}
+.proof{background:var(--tint);border-radius:8px;padding:8px 10px;font-size:14px;margin-top:6px}
+.state{display:inline-block;font-weight:700;font-size:13px;border-radius:999px;padding:2px 10px}
+.state.good{background:#dcfce7;color:#166534}.state.bad{background:#fde8e1;color:#9a3412}.state.wait{background:var(--chip);color:var(--soft)}
+.todo{border-left:4px solid var(--accent)} .todo li{margin:0 0 8px}
+.funnel{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0}
+.funnel div{background:var(--tint);border-radius:8px;padding:8px 10px;font-size:14px}.funnel b{display:block;font-size:20px}
+.funnel .arrow{background:none;padding:0;color:var(--soft)}
+ol.plan{padding-left:20px} ol.plan li{margin:0 0 10px}
+.fund{font-size:12px;border-radius:999px;padding:1px 8px;white-space:nowrap}
+.fund.budget{background:#dcfce7;color:#166534}.fund.recovered{background:#e0f2fe;color:#075985}.fund.next{background:var(--chip);color:var(--soft)}
+.post{border-top:1px solid var(--line);padding:10px 0;font-size:15px}
+.chart{width:100%;height:320px}
+.rank{display:grid;grid-template-columns:28px 1fr auto auto;gap:8px 12px;align-items:center;padding:8px 0;border-top:1px solid var(--line);font-size:15px}
+.rank b.g{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff}
+.gA{background:#15803d}.gB{background:#65a30d}.gC{background:var(--warn)}.gD{background:var(--critical)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.grid .card{margin:0}
+.grade{float:right;font-size:26px;font-weight:700;width:42px;height:42px;border-radius:10px;display:grid;place-items:center;color:#fff}
+.appre{border:1px solid #bbf7d0;background:#f0fdf4}
+code{font-size:13px;background:var(--chip);padding:1px 5px;border-radius:4px}
+footer{margin:48px 0 40px;padding-top:16px;border-top:1px solid var(--line);color:var(--soft);font-size:13px}
+@media (max-width:600px){#map{height:360px}.rank{grid-template-columns:28px 1fr auto}.rank .hide-s{display:none}}
+</style>
+</head>
+<body>
+<nav class="top"><div class="wrap">
+  <span class="brand" data-t="title">Follow the Rupee</span>
+  <a href="#search" data-t="nav_search">Search</a>
+  <a href="#mapsec" data-t="nav_map">Map</a>
+  <a href="#ward" data-t="nav_ward">Your ward</a>
+  <a href="#people" data-t="nav_people">What people say</a>
+  <a href="#contractors" data-t="nav_con">Contractors</a>
+  <a href="#method" data-t="nav_method">How we checked</a>
+  <span class="lang" role="group" aria-label="Language"><button data-l="en" class="on">EN</button> <button data-l="hi">हिंदी</button> <button data-l="mr">मराठी</button></span>
+</div></nav>
+
+<div class="wrap">
+<header>
+  <h1 data-t="title">Follow the Rupee</h1>
+  <p class="sub" data-t="subtitle">Where Mumbai's 2025 monsoon road-repair money went, whether the fixes lasted, and where the next rupee should go.</p>
+  <p class="warn"><b>Synthetic data.</b> Hackathon prototype on the Claude Impact Lab Mumbai dataset. Not BMC data; every contractor is fictional. Do not use it to judge any real person, contractor or department.</p>
+  <div class="kpis" id="kpis"></div>
+</header>
+
+<h2 id="search" data-t="search_h">Find a complaint, work order, road or contractor</h2>
+<p class="muted" data-t="search_p">Type a complaint number (BMC25-000295), a work order (WO25-00117), a road, a contractor or a ward.</p>
+<div class="searchrow"><input id="q" placeholder="BMC25-000295" aria-label="Search"><button class="btn primary" id="qgo" data-t="search_btn">Search</button></div>
+<div class="results" id="results"></div>
+<div id="detail"></div>
+
+<h2 id="mapsec" data-t="map_h">Ward map</h2>
+<p class="muted" data-t="map_p">Darker wards had a bigger share of their repair money go on jobs that failed within 30 days or were flagged. Click a ward for its summary.</p>
+<div class="maptools">
+  <label><input type="checkbox" id="heatOn"> <span data-t="map_heat">Show complaints heatmap</span></label>
+  <label><input type="checkbox" id="openOnly"> <span data-t="map_open">Only complaints never fixed</span></label>
+</div>
+<div id="map" role="img" aria-label="Map of Mumbai wards shaded by share of repair money at issue"></div>
+<div class="legend" id="legend"></div>
+
+<h2 id="ward" data-t="nav_ward">Your ward</h2>
+<select id="wardsel" aria-label="Ward"></select>
+<div id="wardview"></div>
+
+<h2 data-t="budget_h">Budget used, by ward</h2>
+<p class="muted">Spend as a share of each ward's 2025 monsoon repair budget. Red bars went over budget. Hover a bar for amounts.</p>
+<div class="card"><div id="budgetChart" class="chart" style="height:620px"></div></div>
+
+<h2 id="people" data-t="people_h">What people are saying</h2>
+<p class="muted" id="peopleNote"></p>
+<div id="peopleview"></div>
+
+<h2 id="contractors" data-t="rank_h">Contractor ranking</h2>
+<p class="muted">Fair comparison: each contractor is measured against what an average contractor would get on the <i>same</i> mix of repair methods, flood-prone wards and heavy-rain weeks. DLP payments are a BMC payment check and are not counted against contractors.</p>
+<div class="card" id="ranking"></div>
+<h3 data-t="appre_h">Good work</h3>
+<p class="muted">Contractors whose repairs lasted longer and were faster than expected. Citizens can endorse them for future work in their ward (saved in this browser only; this prototype has no shared database).</p>
+<div class="grid" id="appreciation"></div>
+<h3>All scorecards</h3>
+<div class="grid" id="contractorCards"></div>
+
+<h2 id="method" data-t="nav_method">How we checked</h2>
+<div class="card" id="methodText"></div>
+
+<footer>Data: <a href="https://github.com/SumeetGDoshi/Claude-Impact-Labs-data-2">Claude Impact Lab Mumbai dataset</a> (CC BY 4.0), synthetic. Checks run in Python; scorecard text written by Claude. Map tiles © Esri and OpenStreetMap contributors. Prototype, 21 November 2026.</footer>
+</div>
+
+<script>
+const D = /*__DATA__*/null;
+const S = D.summary;
+const $ = id => document.getElementById(id);
+const inr = n => Math.abs(n) >= 1e7 ? '₹' + (n/1e7).toFixed(2) + ' cr' : Math.abs(n) >= 1e5 ? '₹' + (n/1e5).toFixed(1) + ' lakh' : '₹' + Math.round(n).toLocaleString('en-IN');
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+const short = s => String(s).replace(' (synthetic)', '');
+const chip = f => `<span class="chip ${f.startsWith('Over') ? 'ob' : f.startsWith('Possible') ? 'db' : 'dlp'}">${esc(f)}</span>`;
+const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+                set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+
+/* ---------- language ---------- */
+const T = {
+  title: {hi: 'रुपये का हिसाब', mr: 'रुपयाचा हिशोब'},
+  subtitle: {hi: 'मुंबई में 2025 मानसून सड़क मरम्मत का पैसा कहाँ गया, मरम्मत टिकी या नहीं, और अगला रुपया कहाँ लगना चाहिए।',
+             mr: 'मुंबईत 2025 च्या पावसाळ्यातील रस्ते दुरुस्तीचा पैसा कुठे गेला, दुरुस्ती टिकली का, आणि पुढचा रुपया कुठे खर्च व्हावा.'},
+  nav_search: {hi: 'खोजें', mr: 'शोधा'}, nav_map: {hi: 'नक्शा', mr: 'नकाशा'}, nav_ward: {hi: 'आपका वार्ड', mr: 'तुमचा वॉर्ड'},
+  nav_people: {hi: 'लोग क्या कह रहे हैं', mr: 'लोक काय म्हणतात'}, nav_con: {hi: 'ठेकेदार', mr: 'कंत्राटदार'},
+  nav_method: {hi: 'हमने कैसे जाँचा', mr: 'आम्ही कसे तपासले'},
+  search_h: {hi: 'शिकायत, काम, सड़क या ठेकेदार खोजें', mr: 'तक्रार, काम, रस्ता किंवा कंत्राटदार शोधा'},
+  search_p: {hi: 'शिकायत नंबर (BMC25-000295), काम नंबर (WO25-00117), सड़क, ठेकेदार या वार्ड लिखें।',
+             mr: 'तक्रार क्रमांक (BMC25-000295), काम क्रमांक (WO25-00117), रस्ता, कंत्राटदार किंवा वॉर्ड लिहा.'},
+  search_btn: {hi: 'खोजें', mr: 'शोधा'}, map_h: {hi: 'वार्ड नक्शा', mr: 'वॉर्ड नकाशा'},
+  map_p: {hi: 'गहरे रंग के वार्ड में मरम्मत के पैसे का बड़ा हिस्सा ऐसे कामों पर गया जो 30 दिन में टूट गए या संदिग्ध हैं। सारांश के लिए वार्ड पर क्लिक करें।',
+          mr: 'गडद वॉर्डमध्ये दुरुस्तीच्या पैशाचा मोठा भाग 30 दिवसांत तुटलेल्या किंवा संशयास्पद कामांवर गेला. सारांशासाठी वॉर्डवर क्लिक करा.'},
+  map_heat: {hi: 'शिकायतों का हीटमैप दिखाएँ', mr: 'तक्रारींचा हीटमॅप दाखवा'},
+  map_open: {hi: 'सिर्फ़ वे शिकायतें जो कभी ठीक नहीं हुईं', mr: 'फक्त कधीही दुरुस्त न झालेल्या तक्रारी'},
+  budget_h: {hi: 'वार्डवार बजट उपयोग', mr: 'वॉर्डनिहाय बजेट वापर'},
+  people_h: {hi: 'लोग क्या कह रहे हैं', mr: 'लोक काय म्हणतात'}, rank_h: {hi: 'ठेकेदार रैंकिंग', mr: 'कंत्राटदार क्रमवारी'},
+  appre_h: {hi: 'अच्छा काम', mr: 'चांगले काम'},
+  report_h: {en: 'Ward report card', hi: 'वार्ड रिपोर्ट कार्ड', mr: 'वॉर्ड प्रगतिपुस्तक'},
+  todo_h: {en: 'This week, the ward officer can', hi: 'इस हफ्ते वार्ड अधिकारी यह कर सकते हैं', mr: 'या आठवड्यात वॉर्ड अधिकारी हे करू शकतात'},
+  money_h: {en: "Where this ward's money went", hi: 'इस वार्ड का पैसा कहाँ गया', mr: 'या वॉर्डचा पैसा कुठे गेला'},
+  trail_h: {en: 'From complaints to repairs', hi: 'शिकायत से मरम्मत तक', mr: 'तक्रारीपासून दुरुस्तीपर्यंत'},
+  jobs_h: {en: 'Jobs to check', hi: 'जाँच के लिए काम', mr: 'तपासायची कामे'},
+  next_h: {en: 'Where the next rupee should go', hi: 'अगला रुपया कहाँ लगे', mr: 'पुढचा रुपया कुठे खर्च व्हावा'},
+  endorse: {en: 'Endorse for my ward', hi: 'मेरे वार्ड के लिए समर्थन करें', mr: 'माझ्या वॉर्डसाठी पाठिंबा द्या'},
+};
+let LANG = store.get('ftr-lang') || 'en';
+const tr = k => (T[k] && T[k][LANG]) || (T[k] && T[k].en) || null;
+function applyLang() {
+  document.documentElement.lang = LANG;
+  document.querySelectorAll('[data-t]').forEach(el => {
+    if (!el.dataset.en) el.dataset.en = el.textContent;
+    el.textContent = (T[el.dataset.t] && T[el.dataset.t][LANG]) || el.dataset.en;
+  });
+  document.querySelectorAll('.lang button').forEach(b => b.classList.toggle('on', b.dataset.l === LANG));
+}
+document.querySelectorAll('.lang button').forEach(b => b.onclick = () => {
+  LANG = b.dataset.l; store.set('ftr-lang', LANG); applyLang(); renderWard($('wardsel').value);
+});
+
+/* ---------- header numbers ---------- */
+$('kpis').innerHTML = `
+  <div class="kpi"><b>${inr(S.total_spend_inr)}</b><span>spent on ${S.jobs.toLocaleString('en-IN')} repair jobs (budget ${inr(S.total_budget_inr)})</span></div>
+  <div class="kpi bad"><b>${inr(S.failed_30d_inr)}</b><span>spent on ${S.failed_30d_jobs} fixes that failed within 30 days</span></div>
+  <div class="kpi bad"><b>${S.flagged_jobs}</b><span>jobs flagged for review (${inr(S.flagged_inr)} billed)</span></div>
+  <div class="kpi"><b>${S.social.unreported}</b><span>problems posted on social media with no matching complaint</span></div>`;
+
+/* ---------- work order and complaint detail (timeline + proof) ---------- */
+function woCard(id, fromComplaint) {
+  const w = D.W[id]; if (!w) return '';
+  const [ward, road, method, con, cost, done, sla, reopened, fl, firstC, assigned, started, completed, photo, slaH, remark] = w;
+  const failed = reopened === 'Y';
+  const state = failed ? '<span class="state bad">Failed within 30 days: reopened</span>' : '<span class="state good">Fixed and held 30+ days</span>';
+  const p = photo && photo !== 'nan' ? photo : '';
+  const ev = [];
+  if (firstC) ev.push(['First complaint received', firstC, '', p ? 'Citizen photo shows: ' + p : '']);
+  ev.push(['Assigned to ' + con, assigned, '', '']);
+  ev.push(['Work started', started, '', '']);
+  ev.push([`Completed (${sla === 'Y' ? 'on time' : 'late'}, target ${slaH} h)`, completed, sla === 'Y' ? 'good' : 'bad', remark ? 'Engineer remark: “' + remark + '”' : '']);
+  ev.push([failed ? 'Problem came back within 30 days' : 'Held for 30 days', '', failed ? 'bad' : 'good', '']);
+  ev.sort((a, b) => (a[1] && b[1]) ? a[1].localeCompare(b[1]) : 0);
+  return `<div class="card"><b>${id}</b> ${state}
+    <div class="muted">${esc(method)} on ${esc(road)} · ward ${esc(ward)} · ${esc(con)} · ${inr(cost)}</div>
+    ${fl ? `<p class="no" style="margin:8px 0 0"><b>Audit:</b> ${esc(fl)}. See “Jobs to check” in ward ${esc(ward)}.</p>` : ''}
+    <ul class="timeline">${ev.map(e => `<li class="${e[2]}"><b>${esc(e[0])}</b> <span class="muted">${esc(e[1])}</span>${e[3] ? `<div class="proof">${esc(e[3])}</div>` : ''}</li>`).join('')}</ul>
+    <p class="muted">Proof: this dataset has placeholder photos, so the citizen photo is described in words. A live version would show the before and after photos at each step.</p></div>`;
+}
+function complaintCard(id) {
+  const c = D.C[id]; if (!c) return '';
+  const [ward, date, issue, lang, status, text, woId] = c;
+  let h = `<div class="card"><b>${id}</b> <span class="muted">· ${date} · ward ${esc(ward || 'unknown')} · ${esc(issue)}</span><p>“${esc(text)}”</p>`;
+  if (!woId) {
+    const msg = status.startsWith('Closed - Duplicate') ? 'Marked as a duplicate of another complaint about the same problem.' :
+      (status.startsWith('Forwarded') || status.startsWith('Rejected')) ? 'Not handled by BMC road repairs. Ask the ward office which department now owns it.' :
+      'No repair has been linked to this complaint. Follow up at the ward office, on 1916, or with your corporator.';
+    h += `<span class="state wait">${esc(status)}</span><p class="muted">${msg}</p>`;
+  }
+  return h + '</div>' + (woId ? woCard(woId, true) : '');
+}
+
+/* ---------- search ---------- */
+const roadIndex = {};
+for (const [id, w] of Object.entries(D.W)) (roadIndex[w[1]] = roadIndex[w[1]] || []).push(id);
+function search() {
+  const q = $('q').value.trim(); const ql = q.toLowerCase(); const up = q.toUpperCase();
+  $('detail').innerHTML = ''; const res = [];
+  if (D.C[up]) { $('results').innerHTML = ''; $('detail').innerHTML = complaintCard(up); return; }
+  if (D.W[up]) { $('results').innerHTML = ''; $('detail').innerHTML = woCard(up); return; }
+  if (ql.length < 2) { $('results').innerHTML = '<p class="muted">Type at least 2 letters.</p>'; return; }
+  D.wards.filter(w => w.ward_code.toLowerCase() === ql || w.ward_name.toLowerCase().includes(ql))
+    .forEach(w => res.push(['ward', w.ward_code, `Ward ${w.ward_code}: ${w.ward_name}`]));
+  D.contractors.filter(c => c.short.toLowerCase().includes(ql))
+    .forEach(c => res.push(['con', c.contractor_id, `Contractor: ${c.short} (grade ${c.grade})`]));
+  Object.keys(roadIndex).filter(r => r.toLowerCase().includes(ql)).slice(0, 8)
+    .forEach(r => res.push(['road', r, `Road: ${r} (${roadIndex[r].length} repair jobs)`]));
+  Object.keys(D.W).filter(id => id.toLowerCase().includes(ql)).slice(0, 5).forEach(id => res.push(['wo', id, `Work order ${id}`]));
+  Object.keys(D.C).filter(id => id.toLowerCase().includes(ql)).slice(0, 5).forEach(id => res.push(['c', id, `Complaint ${id}`]));
+  $('results').innerHTML = res.length ? res.slice(0, 20).map((r, i) => `<button data-i="${i}">${esc(r[2])}</button>`).join('') : '<p class="muted">Nothing found.</p>';
+  $('results').querySelectorAll('button').forEach(b => b.onclick = () => openResult(res[+b.dataset.i]));
+}
+function openResult([kind, key]) {
+  if (kind === 'ward') { selectWard(key); location.hash = '#ward'; }
+  else if (kind === 'con') { const el = $('card-' + key); if (el) el.scrollIntoView({behavior: 'smooth'}); }
+  else if (kind === 'wo') $('detail').innerHTML = woCard(key);
+  else if (kind === 'c') $('detail').innerHTML = complaintCard(key);
+  else if (kind === 'road') {
+    const ids = roadIndex[key].slice().sort((a, b) => D.W[b][12].localeCompare(D.W[a][12]));
+    $('detail').innerHTML = `<div class="card"><b>${esc(key)}</b> <span class="muted">· ${ids.length} repair jobs, ${inr(ids.reduce((s, i) => s + D.W[i][4], 0))}</span>
+      <div class="tbl"><table><thead><tr><th>Work order</th><th>Method</th><th>Contractor</th><th>Completed</th><th>Lasted?</th><th class="n">Cost</th></tr></thead><tbody>
+      ${ids.map(i => { const w = D.W[i]; return `<tr><td><a href="#search" data-wo="${i}">${i}</a></td><td>${esc(w[2])}</td><td>${esc(w[3])}</td><td>${w[5]}</td><td class="${w[7] === 'Y' ? 'no' : 'ok'}">${w[7] === 'Y' ? 'No' : 'Yes'}</td><td class="n">${inr(w[4])}</td></tr>`; }).join('')}
+      </tbody></table></div></div>`;
+    $('detail').querySelectorAll('[data-wo]').forEach(a => a.onclick = e => { e.preventDefault(); $('detail').insertAdjacentHTML('afterbegin', woCard(a.dataset.wo)); });
+  }
+  $('results').innerHTML = '';
+}
+$('qgo').onclick = search;
+$('q').onkeydown = e => { if (e.key === 'Enter') search(); };
+
+/* ---------- map ---------- */
+const STEPS = ['#cde2fb', '#86b6ef', '#3987e5', '#256abf', '#104281'];   // sequential blue, light -> dark
+const vals = D.wards.map(w => w.money_at_issue_pct).sort((a, b) => a - b);
+const cuts = [0.2, 0.4, 0.6, 0.8].map(p => vals[Math.floor(p * (vals.length - 1))]);
+const stepOf = v => STEPS[cuts.filter(c => v > c).length];
+const byCode = Object.fromEntries(D.wards.map(w => [w.ward_code, w]));
+let map, wardLayer, heatLayer;
+if (window.L) {
+  map = L.map('map', {scrollWheelZoom: false}).setView([19.07, 72.88], 11);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {maxZoom: 16,
+    attribution: 'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap contributors'}).addTo(map);
+  wardLayer = L.geoJSON(D.geo, {
+    style: f => ({color: '#ffffff', weight: 2, fillOpacity: .75, fillColor: stepOf(byCode[f.properties.ward_code].money_at_issue_pct)}),
+    onEachFeature: (f, layer) => {
+      const w = byCode[f.properties.ward_code];
+      layer.bindPopup(() => `<b>${esc(w.ward_code)}: ${esc(w.ward_name)}</b><br>
+        Spent ${inr(w.spent_inr)} of ${inr(w.budget_inr)}<br>
+        Failed within 30 days: ${inr(w.failed_30d_inr)}<br>Flagged: ${inr(w.flagged_inr)}<br>
+        Open complaints, no repair: ${w.complaints_open_not_fixed}<br>
+        <a href="#ward" data-open="${esc(w.ward_code)}">Open ward report →</a>`);
+      layer.on('mouseover', () => layer.setStyle({weight: 3, color: '#1b1f24'}));
+      layer.on('mouseout', () => wardLayer.resetStyle(layer));
+    }
+  }).addTo(map);
+  map.fitBounds(wardLayer.getBounds(), {padding: [10, 10]});
+  map.on('popupopen', e => { const a = e.popup.getElement().querySelector('[data-open]'); if (a) a.onclick = () => selectWard(a.dataset.open); });
+  const drawHeat = () => {
+    if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+    wardLayer.setStyle(f => ({fillOpacity: $('heatOn').checked ? .12 : .75}));
+    if (!$('heatOn').checked || !L.heatLayer) return;
+    const pts = D.heat.filter(p => !$('openOnly').checked || p[2] === 1).map(p => [p[0], p[1], 0.6]);
+    heatLayer = L.heatLayer(pts, {radius: 14, blur: 16, minOpacity: .3,
+      gradient: {0.2: '#fdd9b5', 0.5: '#f9a65a', 0.8: '#e8711c', 1: '#b4530a'}}).addTo(map);
+  };
+  $('heatOn').onchange = drawHeat; $('openOnly').onchange = () => { if (!$('heatOn').checked) $('heatOn').checked = true; drawHeat(); };
+  $('legend').innerHTML = 'Share of repair money on failed or flagged jobs: ' + STEPS.map((c, i) =>
+    `<i style="background:${c}"></i>${i === 0 ? '≤' + cuts[0] : i === STEPS.length - 1 ? '>' + cuts[3] : cuts[i - 1] + '–' + cuts[i]}%`).join(' ');
+} else {
+  $('map').innerHTML = '<p class="muted" style="padding:16px">The map needs an internet connection to load.</p>';
+}
+
+/* ---------- ward view ---------- */
+D.wards.forEach(w => $('wardsel').add(new Option(`${w.ward_code}: ${w.ward_name}`, w.ward_code)));
+$('wardsel').onchange = () => renderWard($('wardsel').value);
+function selectWard(code) { $('wardsel').value = code; renderWard(code); $('ward').scrollIntoView({behavior: 'smooth'}); }
+let donut;
+function renderWard(code) {
+  const w = byCode[code]; if (!w) return;
+  const pct = Math.round(100 * w.spent_inr / w.budget_inr);
+  const flags = D.flags.filter(f => f.ward_code === code);
+  const plan = w.next_rupee, left = plan.budget_left_inr, t = w.trail || {};
+  const vs = (a, e, hi) => `<span class="${(hi ? a >= e : a <= e) ? 'ok' : 'no'}">${a}%</span> <span class="muted">(expected ${e}%)</span>`;
+  const fundLabel = {'budget': ['budget', 'from budget left'], 'recovered money': ['recovered', 'if flagged money is recovered'], 'next allocation': ['next', 'next allocation']};
+  const csv = 'data:text/csv;charset=utf-8,' + encodeURIComponent(['work_order_id,flag,confidence,contractor,road,cost_inr,reason']
+    .concat(flags.map(f => [f.work_order_id, f.flag, f.confidence, short(f.contractor_name), f.road_name, f.cost_inr, '"' + f.reason.replace(/"/g, "'") + '"'].join(','))).join('\n'));
+  $('wardview').innerHTML = `
+  <div class="two" style="margin-top:14px">
+    <div class="card">
+      <b>${tr('report_h')}: ${esc(w.ward_name)}</b><div class="muted">${esc(w.zone)} · ${esc(w.office)}</div>
+      <div class="bar"><i class="${pct > 100 ? 'over' : ''}" style="width:${Math.min(pct, 100)}%"></i></div>
+      <div class="muted">${inr(w.spent_inr)} spent of ${inr(w.budget_inr)} budget (${pct}%) on ${w.jobs} jobs.</div>
+      <div class="m" style="margin-top:8px"><i>Deadlines met</i><span>${vs(w.sla_met_pct, w.sla_expected_pct, true)}</span></div>
+      <div class="m"><i>Fixes failed in 30 days</i><span>${vs(w.reopen_pct, w.reopen_expected_pct, false)}</span></div>
+      <div class="m"><i>Billed on flagged jobs</i><span>${inr(w.flagged_inr)}</span></div>
+      <p class="muted">Context: flood-prone index ${w.low_lying_index} (0 to 1); ${w.heavy_rain_share_pct}% of jobs had heavy rain within a week. "Expected" is what this ward's mix of jobs, flooding and rain would normally give.</p>
+    </div>
+    <div class="card"><b>${tr('money_h')}</b>
+      <div id="donut" class="chart" style="height:250px" role="img" aria-label="Ward spend split into held, failed and flagged"></div>
+      <div class="muted">Held = fixed and lasted 30+ days. Failed = came back within 30 days. Flagged = billing or DLP flag (counted once).</div>
+    </div>
+  </div>
+  <div class="card todo"><b>${tr('todo_h')}</b><ol>${w.actions.map(a => `<li>${esc(a)}</li>`).join('') || '<li class="muted">Nothing urgent.</li>'}</ol></div>
+  <div class="card"><b>${tr('trail_h')}</b>
+    <div class="funnel">
+      <div><b>${t.complaints ?? 0}</b>complaints</div><span class="arrow">→</span>
+      <div><b>${t.duplicates ?? 0}</b>duplicates set aside</div><div><b>${t.not_bmc ?? 0}</b>not BMC roads / other dept</div><span class="arrow">→</span>
+      <div><b>${(t.issues_fixed ?? 0) + (t.issues_open ?? 0)}</b>distinct problems</div><span class="arrow">→</span>
+      <div><b>${t.held ?? 0}</b>fixed and held</div><div><b class="no">${t.failed ?? 0}</b>fixed but failed</div>
+      <div><b class="no">${t.issues_open ?? 0}</b>never fixed (${t.complaints_open ?? 0} complaints)</div>
+    </div>
+    <div class="muted">${t.recategorised ?? 0} complaints were filed under the wrong or a vague category and re-read from their text. ${t.jobs_without_complaint ?? 0} paid job(s) here have no complaint behind them.</div>
+  </div>
+  <div class="card"><b>${tr('jobs_h')}</b> <span class="muted">(${flags.length}, largest first; click a work order for its timeline)</span>
+    <div class="tbl"><table><thead><tr><th>Work order</th><th>Flag</th><th>Why</th><th>Contractor</th><th class="n">Billed</th></tr></thead><tbody id="flagrows"></tbody></table></div>
+    ${flags.length > 8 ? '<button class="btn" id="more">Show all</button> ' : ''}${flags.length ? `<a class="btn" download="flags_${code.replace('/', '-')}.csv" href="${csv}">Download CSV for the ward office</a>` : ''}
+  </div>
+  <div class="card"><b>${tr('next_h')}</b>
+    <div class="muted">Budget left: ${left >= 0 ? inr(left) : 'none (over by ' + inr(-left) + ')'} · Could be recovered from flagged jobs: ${inr(plan.recoverable_inr)} · This plan: ${inr(plan.plan_total_inr)}</div>
+    <ol class="plan">${plan.items.map(i => `<li><b>${esc(i.road)}</b>: ${esc(i.action)}${i.est_cost_inr ? ', about ' + inr(i.est_cost_inr) : ''} <span class="fund ${fundLabel[i.funded_by][0]}">${fundLabel[i.funded_by][1]}</span><br><span class="muted">${esc(i.issue)}. Why: ${esc(i.why)}. Risk ${i.risk}/100.</span></li>`).join('') || '<li class="muted">No open, unfixed complaints mapped to roads in this ward.</li>'}</ol>
+    <div class="muted">Methods are the most durable in the data for each issue, not the cheapest. Roads under DLP cost BMC nothing.</div>
+  </div>`;
+  const rows = all => flags.slice(0, all ? flags.length : 8).map(f => `<tr><td><a href="#search" data-wo="${f.work_order_id}">${f.work_order_id}</a></td><td>${chip(f.flag)}<br><span class="conf ${f.confidence}">${f.confidence}</span></td><td>${esc(f.reason)}</td><td>${esc(short(f.contractor_name))}</td><td class="n">${inr(f.cost_inr)}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">No flags in this ward.</td></tr>';
+  const wire = () => $('flagrows').querySelectorAll('[data-wo]').forEach(a => a.onclick = () => { $('detail').innerHTML = woCard(a.dataset.wo); $('results').innerHTML = ''; });
+  $('flagrows').innerHTML = rows(false); wire();
+  if ($('more')) $('more').onclick = () => { $('flagrows').innerHTML = rows(true); wire(); $('more').remove(); };
+  renderDonut(w); renderPeople(w);
+}
+
+/* ---------- charts ---------- */
+function renderDonut(w) {
+  if (!window.echarts) return;
+  if (donut) donut.dispose();
+  donut = echarts.init($('donut'));
+  const o = w.outcome_inr;
+  donut.setOption({
+    tooltip: {trigger: 'item', formatter: p => `${p.name}<br><b>${inr(p.value)}</b> (${p.percent}%)`},
+    legend: {bottom: 0, icon: 'circle', textStyle: {color: '#5a636e'}},
+    series: [{type: 'pie', radius: ['48%', '72%'], center: ['50%', '44%'], avoidLabelOverlap: true,
+      itemStyle: {borderColor: '#ffffff', borderWidth: 2, borderRadius: 4},
+      label: {color: '#1b1f24', formatter: p => `${p.percent}%`},
+      data: [{name: 'Held 30+ days', value: o.held, itemStyle: {color: '#0ca30c'}},
+             {name: 'Failed within 30 days', value: o.failed, itemStyle: {color: '#ec835a'}},
+             {name: 'Flagged for review', value: o.flagged, itemStyle: {color: '#d03b3b'}}]}]
+  });
+}
+function renderBudget() {
+  if (!window.echarts) { $('budgetChart').innerHTML = '<p class="muted">Charts need an internet connection.</p>'; return; }
+  const rows = D.wards.map(w => ({code: w.ward_code, name: w.ward_name, pct: Math.round(100 * w.spent_inr / w.budget_inr), w}))
+    .sort((a, b) => a.pct - b.pct);
+  const ch = echarts.init($('budgetChart'));
+  ch.setOption({
+    grid: {left: 52, right: 84, top: 10, bottom: 30},
+    tooltip: {trigger: 'item', formatter: p => { const r = rows[p.dataIndex]; return `<b>${r.code}: ${esc(r.name)}</b><br>Spent ${inr(r.w.spent_inr)} of ${inr(r.w.budget_inr)} (${r.pct}%)`; }},
+    xAxis: {type: 'value', axisLabel: {formatter: '{value}%', color: '#5a636e'}, splitLine: {lineStyle: {color: '#eef0f2'}}},
+    yAxis: {type: 'category', data: rows.map(r => r.code), axisTick: {show: false}, axisLine: {lineStyle: {color: '#c9ced4'}}, axisLabel: {color: '#1b1f24'}},
+    series: [{type: 'bar', barWidth: 14, data: rows.map(r => ({value: r.pct, itemStyle: {color: r.pct > 100 ? '#d03b3b' : '#2a78d6', borderRadius: [0, 4, 4, 0]}})),
+      label: {show: true, position: 'right', color: '#5a636e', fontSize: 11, formatter: p => p.value > 100 ? p.value + '% over' : ''},
+      markLine: {silent: true, symbol: 'none', label: {formatter: 'budget', color: '#5a636e'}, lineStyle: {color: '#1b1f24', type: 'dashed'}, data: [{xAxis: 100}]}}]
+  });
+  ch.on('click', p => selectWard(rows[p.dataIndex].code));
+  window.addEventListener('resize', () => { ch.resize(); donut && donut.resize(); });
+}
+
+/* ---------- what people are saying ---------- */
+$('peopleNote').textContent = `${S.social.total} posts from X, WhatsApp groups and Instagram. ${S.social.placed} were matched to a ward. Each post is sorted as a problem report, sarcasm (a complaint said as a joke), a thank-you, or noise (greetings, unverified forwards). Posts are a signal of where to look, never proof on their own.`;
+function renderPeople(w) {
+  const s = w.social || {};
+  if (!s.posts) { $('peopleview').innerHTML = `<div class="card muted">No social media posts matched to ward ${esc(w.ward_code)}.</div>`; return; }
+  const label = {report: 'Problem report', sarcasm: 'Sarcasm (complaint)', thanks: 'Thank-you'};
+  $('peopleview').innerHTML = `<div class="card"><b>Ward ${esc(w.ward_code)}: ${esc(w.ward_name)}</b>
+    <div class="funnel"><div><b>${s.reports}</b>problem reports</div><div><b>${s.sarcasm}</b>sarcastic complaints</div><div><b class="ok">${s.thanks}</b>thank-yous</div><div><b>${s.noise}</b>noise set aside</div><div><b class="no">${s.unreported}</b>problems with no matching complaint</div><div><b>${s.reach.toLocaleString('en-IN')}</b>likes and forwards</div></div>
+    ${s.top.map(p => `<div class="post"><span class="chip ${p.kind}">${label[p.kind] || p.kind}</span> <span class="muted">${esc(p.source)} · ${p.date} · ${p.reach} likes/forwards</span>${p.unreported ? ' <span class="chip ob">no complaint filed</span>' : ''}<div>${esc(p.text)}</div></div>`).join('')}
+    ${s.unreported ? `<p class="muted">Ward officer: ${s.unreported} problem(s) were posted publicly with no complaint from that locality within 3 days. Log them as complaints so they enter the repair system.</p>` : ''}</div>`;
+}
+
+/* ---------- contractors: ranking, appreciation, cards ---------- */
+const order = {A: 0, B: 1, C: 2, D: 3};
+const ranked = D.contractors.slice().sort((a, b) => order[a.grade] - order[b.grade] || b.durability_vs_expected_pp - a.durability_vs_expected_pp);
+$('ranking').innerHTML = ranked.map((c, i) => `<div class="rank"><span class="muted">${i + 1}</span>
+  <span><a href="#card-${c.contractor_id}">${esc(c.short)}</a><br><span class="muted">${c.jobs} jobs · ${inr(c.billed_inr)}</span></span>
+  <span class="muted hide-s">fixes failed ${c.reopen_pct}% (exp. ${c.reopen_expected_pct}%)</span>
+  <b class="g g${c.grade}">${c.grade}</b></div>`).join('');
+function endorseCount(c) { return +(store.get('ftr-endorse-' + c.contractor_id) || 0); }
+function renderAppreciation() {
+  $('appreciation').innerHTML = ranked.filter(c => c.grade === 'A' || c.grade === 'B').map(c => {
+    const n = endorseCount(c), mine = store.get('ftr-endorsed-' + c.contractor_id) === '1';
+    return `<div class="card appre"><b>${esc(c.short)}</b> <span class="muted">· grade ${c.grade}</span>
+      <p style="font-size:15px">Repairs failed ${c.reopen_pct}% of the time against ${c.reopen_expected_pct}% expected, and ${c.sla_met_pct}% were on time (${c.sla_expected_pct}% expected). Works in ${c.wards.length} wards.</p>
+      <button class="btn ${mine ? '' : 'primary'}" data-endorse="${c.contractor_id}" ${mine ? 'disabled' : ''}>${mine ? 'You endorsed this contractor' : tr('endorse')}</button>
+      <span class="muted"> ${n} endorsement${n === 1 ? '' : 's'} from this browser</span></div>`;
+  }).join('');
+  $('appreciation').querySelectorAll('[data-endorse]').forEach(b => b.onclick = () => {
+    const id = b.dataset.endorse; store.set('ftr-endorse-' + id, endorseCount({contractor_id: id}) + 1); store.set('ftr-endorsed-' + id, '1'); renderAppreciation();
+  });
+}
+$('contractorCards').innerHTML = ranked.map(c => {
+  const f = c.flags || {};
+  const better = (a, e, hi) => (hi ? a >= e : a <= e) ? 'ok' : 'no';
+  return `<div class="card" id="card-${c.contractor_id}"><span class="grade g${c.grade}">${c.grade}</span>
+  <b>${esc(c.short)}</b><div class="muted">${c.jobs} jobs · ${inr(c.billed_inr)} · ${c.wards.length} wards</div>
+  <p style="font-size:15px">${esc(c.text)}</p>
+  <div class="m"><i>Deadlines met</i><span class="${better(c.sla_met_pct, c.sla_expected_pct, true)}">${c.sla_met_pct}% <i>(expected ${c.sla_expected_pct}%)</i></span></div>
+  <div class="m"><i>Fixes failed in 30 days</i><span class="${better(c.reopen_pct, c.reopen_expected_pct, false)}">${c.reopen_pct}% <i>(expected ${c.reopen_expected_pct}%)</i></span></div>
+  <div class="m"><i>Typical cost vs rate card</i><span>${c.median_cost_ratio}×</span></div>
+  <div class="m"><i>Over-billed / repeat bills</i><span>${f['Over-billed'] || 0} / ${f['Possible double billing'] || 0}</span></div>
+  <p class="muted" style="margin:8px 0 0">Context: ${c.low_lying_share_pct}% of jobs in highly flood-prone wards, ${c.heavy_rain_share_pct}% with heavy rain within a week, ${c.cold_mix_share_pct}% cold-mix patches.${c.evidence.length ? ' Evidence: ' + c.evidence.map(id => `<a href="#search" data-wo="${id}">${id}</a>`).join(', ') + '.' : ''}</p></div>`;
+}).join('');
+$('contractorCards').querySelectorAll('[data-wo]').forEach(a => a.onclick = () => { $('detail').innerHTML = woCard(a.dataset.wo); $('results').innerHTML = ''; });
+
+/* ---------- method ---------- */
+$('methodText').innerHTML = `
+<p><span class="chip ob">Over-billed</span> Cost is more than ${S.rules.overbill_ratio}× the rate card for that method and area. Normal jobs vary 20 to 30% around the rate; no job in the data sits between 1.30× and 1.35×, so the line is clean.</p>
+<p><span class="chip db">Possible double billing</span> A job with no complaint linked, on the same road, same method and same contractor as a real job completed within ${S.rules.double_bill_days} days.</p>
+<p><span class="chip dlp">Paid during DLP</span> BMC paid for a repair on a road still under its Defect Liability Period, when the original contractor should fix it for free.</p>
+<p><b>Confidence.</b> <span class="conf High">High</span>: 1.5× or more, a repeat bill, or a surface repair paid during DLP. <span class="conf Medium">Medium</span>: 1.35 to 1.5×, or drainage work on a DLP road. Missed deadlines and failed fixes are not flagged as wrongdoing; rain and flood-prone wards explain much of that, so they go into the fair scorecards instead.</p>
+<p><b>Next rupee.</b> Roads with open, unfixed complaints ranked by complaints and upvotes, flood spots, traffic and bus routes, road-condition accidents, hospital and school access, and past failed fixes. The method is the most durable one in the data for that issue (potholes: hot mix fails ${S.method_reopen_pct['Hot mix patch']}% of the time vs ${S.method_reopen_pct['Cold mix patch']}% for cold mix).</p>
+<p><b>Connecting the trail.</b> ${S.complaints.total.toLocaleString('en-IN')} complaints in English, Hinglish, Marathi and Hindi, placed on a road by GPS (${S.complaints.geocoded.gps.toLocaleString('en-IN')}) or by locality name and Devanagari alias (${S.complaints.geocoded.locality.toLocaleString('en-IN')}); ${S.complaints.recategorised.toLocaleString('en-IN')} re-read from their text because the category was wrong or vague; ${S.complaints.duplicates.toLocaleString('en-IN')} duplicates set aside; followed to work orders or marked never fixed.</p>
+<p><b>Social media.</b> ${S.social.total} posts sorted into problem reports (${S.social.kinds.report || 0}), sarcasm (${S.social.kinds.sarcasm || 0}), thank-yous (${S.social.kinds.thanks || 0}) and noise (${S.social.kinds.noise || 0}); ${S.social.unreported} problem posts had no complaint from that locality within 3 days.</p>
+<p class="muted">Prototype note: the text sorting uses English, Hindi and Marathi keywords; with an API key, Claude does this step (it reads sarcasm far better) and writes the scorecard text (prompt in <code>prompts/</code>).</p>`;
+
+/* ---------- start ---------- */
+renderBudget();
+renderAppreciation();
+applyLang();
+renderWard('R/N'); $('wardsel').value = 'R/N';
+const qp = new URLSearchParams(location.search).get('q');
+if (qp) { $('q').value = qp; search(); }
+</script>
+</body>
+</html>
