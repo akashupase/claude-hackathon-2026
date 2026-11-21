@@ -1,10 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import type { AuditFlagsData, WardSimulatorEntry } from "./audit";
-import { formatInr, formatInrShort } from "./format";
+import { formatInrShort } from "./format";
 
-// Header KPI ticker: recoverable rupees + spend vs budget, citywide or for the
-// selected ward. Everything it shows is an audit simulation on synthetic data.
+const TILE = "rounded-2xl bg-white px-4 pt-3 pb-4 shadow-[0_0_0_1px_rgba(43,48,51,.12)]";
+const LABEL = "text-[11.5px] font-semibold uppercase tracking-[.08em] text-[#4a4f52]";
+const BIG = "text-[clamp(22px,2.2vw,30px)] font-extrabold leading-none tracking-[-.035em] tabular-nums";
+
+// Header stat tiles: recoverable money, spend vs budget, suspicious bills —
+// citywide or for the selected ward. Audit simulation on synthetic data.
 export default function KpiTicker({
   audit,
   wardSim,
@@ -15,14 +20,7 @@ export default function KpiTicker({
   wardName?: string;
 }) {
   if (!audit) {
-    return (
-      <div className="flex-none rounded-xl bg-white px-4 py-2.5 text-[15px] text-[#4a4f52] shadow-[0_0_0_1px_rgba(43,48,51,.14)]">
-        Audit feed not generated yet — run{" "}
-        <code className="rounded bg-[#faf3eb] px-1.5 py-0.5 text-[13px]">
-          python scripts/build_audit_data.py
-        </code>
-      </div>
-    );
+    return <div className={`${TILE} flex-none text-[14px] text-[#4a4f52]`}>Audit data isn&apos;t in the database yet.</div>;
   }
 
   const recoverable = wardSim
@@ -34,73 +32,37 @@ export default function KpiTicker({
   const budget = wardSim ? wardSim.monsoon_budget_inr_2025 : audit.summary.total_budget_inr;
   const spend = wardSim ? wardSim.spend_to_date_inr : audit.summary.total_spend_inr;
   const spentPct = budget > 0 ? Math.min(100, (spend / budget) * 100) : 0;
-  const recoverablePct = spend > 0 ? (recoverable / spend) * 100 : 0;
+  const scope = wardName ? `Ward ${wardName}` : "All wards";
 
   return (
-    <div className="grid flex-none grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(240px,1.2fr)_minmax(260px,1.4fr)_minmax(200px,1fr)]">
-      {/* Recoverable funds */}
-      <div className="flex items-center gap-3 rounded-xl bg-white px-4 py-2 shadow-[0_0_0_1px_rgba(43,48,51,.14)]">
-        <div
-          className="grid size-9 flex-none place-items-center rounded-lg bg-[#fdeae4] text-[17px]"
-          aria-hidden="true"
-        >
-          ₹
+    <div className="grid flex-none grid-cols-2 gap-2 lg:grid-cols-[1fr_1.5fr_1fr]">
+      <Link
+        href="/audit"
+        className={`${TILE} group transition-shadow hover:shadow-[0_0_0_2px_#ee7454] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ee7454]`}
+      >
+        <div className={LABEL}>
+          Recoverable · {scope} <span className="text-[#ee7454] transition-transform group-hover:translate-x-0.5">→</span>
         </div>
-        <div className="min-w-0">
-          <div className="font-[family-name:var(--font-bricolage)] text-[11px] font-medium uppercase tracking-[.08em] text-[#4a4f52]">
-            {wardName ? `Recoverable in Ward ${wardName}` : "Money BMC can recover"}
-          </div>
-          <div className="font-[family-name:var(--font-bricolage)] text-[22px] font-semibold leading-[1.15] tracking-[-.02em] text-[#ee7454] tabular-nums">
-            {formatInr(recoverable)}
-            <span className="ml-2 text-[12px] font-medium text-[#4a4f52]">
-              {recoverablePct > 0 ? `${recoverablePct.toFixed(1)}% of what BMC spent` : null}
-            </span>
-          </div>
+        <div className={`${BIG} mt-1.5 text-[#ee7454]`}>{formatInrShort(recoverable)}</div>
+      </Link>
+
+      <div className={`${TILE} relative order-last col-span-2 lg:order-none lg:col-span-1`}>
+        <div className="flex items-baseline justify-between gap-2">
+          <span className={LABEL}>Spent of budget · {scope}</span>
+          <span className="text-[13px] font-semibold tabular-nums text-[#4a4f52]">{spentPct.toFixed(0)}%</span>
+        </div>
+        <div className="mt-1.5 flex items-baseline gap-1.5">
+          <span className={BIG}>{formatInrShort(spend)}</span>
+          <span className="text-[14px] font-medium tabular-nums text-[#4a4f52]">/ {formatInrShort(budget)}</span>
+        </div>
+        <div className="absolute inset-x-4 bottom-2 h-1.5 overflow-hidden rounded-[4px] bg-[#efe7dd]">
+          <div className="h-full rounded-[4px] bg-[#2b3033] transition-[width] duration-700" style={{ width: `${spentPct}%` }} />
         </div>
       </div>
 
-      {/* Spend vs budget */}
-      <div className="flex items-center gap-3 rounded-xl bg-white px-4 py-2 shadow-[0_0_0_1px_rgba(43,48,51,.14)]">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline justify-between gap-2">
-            <span className="font-[family-name:var(--font-bricolage)] text-[11px] font-medium uppercase tracking-[.08em] text-[#4a4f52]">
-              {wardName
-                ? `Ward ${wardName}: money spent vs budget`
-                : "Repair money: spent vs budget"}
-            </span>
-            <span className="font-[family-name:var(--font-bricolage)] text-[15px] font-semibold tabular-nums text-[#2b3033]">
-              {formatInrShort(spend)}{" "}
-              <span className="font-medium text-[#4a4f52]">of {formatInrShort(budget)}</span>
-            </span>
-          </div>
-          <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-[#efe7dd]">
-            <div
-              className="h-full rounded-full bg-[#ee7454] transition-[width] duration-700"
-              style={{ width: `${spentPct}%` }}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Flagged orders */}
-      <div className="hidden items-center gap-3 rounded-xl bg-white px-4 py-2 shadow-[0_0_0_1px_rgba(43,48,51,.14)] lg:flex">
-        <div
-          className="grid size-9 flex-none place-items-center rounded-lg bg-[#ece4f7] text-[17px]"
-          aria-hidden="true"
-        >
-          ⚑
-        </div>
-        <div>
-          <div className="font-[family-name:var(--font-bricolage)] text-[11px] font-medium uppercase tracking-[.08em] text-[#4a4f52]">
-            Suspicious repair bills
-          </div>
-          <div className="font-[family-name:var(--font-bricolage)] text-[22px] font-semibold leading-[1.15] tracking-[-.02em] tabular-nums">
-            {flagged}
-            <span className="ml-2 text-[12px] font-medium text-[#4a4f52]">
-              audit simulation · fake data
-            </span>
-          </div>
-        </div>
+      <div className={TILE}>
+        <div className={LABEL}>Suspicious bills · {scope}</div>
+        <div className={`${BIG} mt-1.5`}>{flagged}</div>
       </div>
     </div>
   );

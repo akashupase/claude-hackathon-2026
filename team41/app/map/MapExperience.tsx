@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import type {
-  AuditFlag,
   AuditFlagsData,
   ContractorScoresData,
   WardSimulatorData,
@@ -10,15 +10,11 @@ import type {
 import type { Ward } from "./data";
 import type { TrailFocus, SearchHit } from "./SearchBar";
 import type { TrailIndexData } from "./trail";
-import AuditFlagsPanel from "./AuditFlagsPanel";
-import ClawbackNoticeModal from "./ClawbackNoticeModal";
 import ContractorLeaderboard from "./ContractorLeaderboard";
 import KpiTicker from "./KpiTicker";
 import SearchBar from "./SearchBar";
 import WardDrawerPanels, { type DrawerTab } from "./WardDrawerPanels";
 import WardMap from "./WardMap";
-
-type Tab = "flags" | "contractors";
 
 // The single split-screen /map experience: universal search + KPI ticker on
 // top, audit panel on the left (a bottom-sheet popup on mobile), Leaflet map
@@ -41,8 +37,6 @@ export default function MapExperience({
   trail: TrailIndexData | null;
 }) {
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("flags");
-  const [notice, setNotice] = useState<AuditFlag | null>(null);
   const [drawerTab, setDrawerTab] = useState<DrawerTab>("simulator");
   const [trailFocus, setTrailFocus] = useState<TrailFocus | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -88,61 +82,48 @@ export default function MapExperience({
     });
   };
 
-  // Shared panel content: flags list on desktop, inside the sheet on mobile.
-  const panelBody =
-    tab === "flags" ? (
-      audit ? (
-        <AuditFlagsPanel
-          audit={audit}
-          wardCode={selectedCode}
-          wardName={ward?.ward_name}
-          onOpenNotice={setNotice}
-        />
-      ) : (
-        <EmptyFeed text="Data feed missing — run python scripts/build_audit_data.py from the team41 folder to create it." />
-      )
-    ) : scores ? (
-      <ContractorLeaderboard scores={scores} selectedWardCode={selectedCode} />
-    ) : (
-      <EmptyFeed text="Ratings feed missing — run python scripts/build_audit_data.py from the team41 folder to create it." />
-    );
+  // Contractor ratings: left panel on desktop, inside the sheet on mobile.
+  // Wasted money lives on its own page (/audit).
+  const panelBody = scores ? (
+    <ContractorLeaderboard scores={scores} selectedWardCode={selectedCode} />
+  ) : (
+    <EmptyFeed text="Ratings feed missing — run python scripts/build_audit_data.py from the team41 folder to create it." />
+  );
 
   const tabButtons = (
-    [
-      ["flags", "Wasted money"],
-      ["contractors", "Contractor ratings"],
-    ] as [Tab, string][]
-  ).map(([key, label]) => (
-    <button
-      key={key}
-      type="button"
-      role="tab"
-      aria-selected={tab === key}
-      onClick={() => setTab(key)}
-      className={`flex-1 rounded-lg px-2 py-1.5 text-[13px] font-medium transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#ee7454] ${
-        tab === key
-          ? "bg-white text-[#2b3033] shadow-[0_1px_3px_rgba(0,0,0,.15)]"
-          : "text-[#4a4f52] hover:text-[#2b3033]"
-      }`}
-    >
-      {label}
-    </button>
-  ));
+    <>
+      <span className="flex-1 rounded-lg bg-white px-2 py-1.5 text-center text-[13px] font-bold text-[#2b3033] shadow-[0_1px_3px_rgba(0,0,0,.15)]">
+        Contractor ratings
+      </span>
+      <Link
+        href="/audit"
+        className="flex-1 rounded-lg px-2 py-1.5 text-center text-[13px] font-semibold text-[#4a4f52] transition-colors duration-300 hover:text-[#2b3033] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#ee7454]"
+      >
+        Wasted money →
+      </Link>
+    </>
+  );
 
   return (
     <>
-      <div className="flex flex-none flex-col gap-2 px-5 pt-3 sm:px-[max(20px,6%)]">
-        <SearchBar trail={trail} onPick={handleSearchPick} />
+      <div className="flex flex-none flex-col gap-3 px-5 pt-3 sm:px-[max(20px,6%)]">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-6">
+          <div className="flex-none">
+            <h1 className="text-[clamp(28px,3vw,40px)] font-extrabold leading-none tracking-[-.04em]">Ward map</h1>
+            <p className="mt-1 text-[14px] text-[#4a4f52]">Tap a ward for its budget, risky roads and complaints.</p>
+          </div>
+          <div className="min-w-0 lg:flex-1">
+            <SearchBar trail={trail} onPick={handleSearchPick} />
+          </div>
+        </div>
         <KpiTicker audit={audit} wardSim={wardSim} wardName={ward?.ward_code} />
       </div>
 
-      <main className="flex min-h-0 flex-1 flex-col gap-4 px-5 pb-5 pt-2 sm:px-[max(20px,6%)] lg:flex-row">
-        {/* Left panel (desktop): audit flags / contractors */}
+      <main className="flex min-h-0 flex-1 flex-col gap-4 px-5 pb-5 pt-1 sm:px-[max(20px,6%)] lg:flex-row">
+        {/* Left panel (desktop): contractor ratings */}
         <div className="hidden min-h-0 flex-col rounded-2xl bg-[#faf3eb] lg:flex lg:w-[400px] lg:flex-none xl:w-[430px]">
           <div
             className="mb-2 flex flex-none gap-1 rounded-xl bg-[#efe7dd] p-1"
-            role="tablist"
-            aria-label="Audit panels"
           >
             {tabButtons}
           </div>
@@ -176,22 +157,15 @@ export default function MapExperience({
 
         {/* Mobile: open the audit panels as a bottom-sheet popup */}
         <div className="flex flex-none gap-2 lg:hidden">
-          <button
-            type="button"
-            onClick={() => {
-              setTab("flags");
-              setSheetOpen(true);
-            }}
-            className="flex-1 rounded-full bg-[#2b3033] px-3.5 py-2 text-[13.5px] font-medium text-white transition-colors hover:bg-[#ee7454] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ee7454]"
+          <Link
+            href="/audit"
+            className="flex-1 rounded-full bg-[#2b3033] text-center px-3.5 py-2 text-[13.5px] font-medium text-white transition-colors hover:bg-[#ee7454] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ee7454]"
           >
             💸 Wasted money
-          </button>
+          </Link>
           <button
             type="button"
-            onClick={() => {
-              setTab("contractors");
-              setSheetOpen(true);
-            }}
+            onClick={() => setSheetOpen(true)}
             className="flex-1 rounded-full bg-white px-3.5 py-2 text-[13.5px] font-medium text-[#2b3033] shadow-[0_0_0_1px_rgba(43,48,51,.16)] transition-colors hover:bg-[#fdeae4] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ee7454]"
           >
             ★ Contractor ratings
@@ -205,7 +179,7 @@ export default function MapExperience({
           className="fixed inset-0 z-[1800] lg:hidden"
           role="dialog"
           aria-modal="true"
-          aria-label="Audit details"
+          aria-label="Contractor ratings"
         >
           <div
             className="absolute inset-0 bg-[rgba(43,48,51,.45)]"
@@ -219,8 +193,6 @@ export default function MapExperience({
             <div className="flex flex-none items-center gap-2 px-4 pt-2">
               <div
                 className="flex min-w-0 flex-1 gap-1 rounded-xl bg-[#efe7dd] p-1"
-                role="tablist"
-                aria-label="Audit panels"
               >
                 {tabButtons}
               </div>
@@ -240,13 +212,6 @@ export default function MapExperience({
         </div>
       )}
 
-      {notice && (
-        <ClawbackNoticeModal
-          flag={notice}
-          wardName={ward?.ward_code === notice.ward_code ? ward?.ward_name : undefined}
-          onClose={() => setNotice(null)}
-        />
-      )}
     </>
   );
 }

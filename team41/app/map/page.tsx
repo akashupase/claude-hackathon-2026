@@ -1,7 +1,7 @@
 import { Suspense } from "react";
-import { Bricolage_Grotesque, Newsreader } from "next/font/google";
 import { connection } from "next/server";
 import SiteHeader from "@/components/site-header";
+import { fontVars, inter } from "@/lib/fonts";
 import {
   loadAuditFlags,
   loadContractorScores,
@@ -10,17 +10,6 @@ import {
 import { loadRoads, loadWardOutlines, loadWards } from "./data";
 import MapExperience from "./MapExperience";
 import { loadTrailIndex } from "./trail";
-
-const bricolage = Bricolage_Grotesque({
-  subsets: ["latin"],
-  variable: "--font-bricolage",
-  weight: ["500", "600"],
-});
-const newsreader = Newsreader({
-  subsets: ["latin"],
-  variable: "--font-newsreader",
-  weight: "400",
-});
 
 export const metadata = {
   title: "Ward map · Follow the Rupee",
@@ -33,12 +22,15 @@ export const metadata = {
 export default function MapPage() {
   return (
     <div
-      className={`${bricolage.variable} ${newsreader.variable} flex min-h-dvh w-full flex-col gap-3 bg-[#faf3eb] font-[family-name:var(--font-newsreader)] text-[#2b3033] lg:h-dvh lg:min-h-0`}
+      className={`${fontVars} ${inter.variable} flex min-h-dvh w-full flex-col gap-3 bg-[#faf3eb] text-[#2b3033] lg:h-dvh lg:min-h-0`}
     >
       <SiteHeader current="map" />
-      <Suspense fallback={<MapFallback />}>
-        <MapBody />
-      </Suspense>
+      {/* Plain sans below the header, same as /audit: font vars resolve to Inter. */}
+      <div className="contents font-[family-name:var(--font-inter)] [--font-bricolage:var(--font-inter)] [--font-newsreader:var(--font-inter)]">
+        <Suspense fallback={<MapFallback />}>
+          <MapBody />
+        </Suspense>
+      </div>
     </div>
   );
 }
