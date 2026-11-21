@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import type { GeoJSON as LGeoJSON, Path } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Ward } from "./data";
@@ -41,22 +48,33 @@ export default function WardMap({
   wards,
   outlines,
   roads,
+  // Optional controlled-selection props — omit them and the map owns its own
+  // selection state exactly as before.
+  selectedCode,
+  onWardSelect,
+  drawerFooter,
 }: {
   wards: Ward[];
   outlines: unknown;
   roads: unknown;
+  selectedCode?: string | null;
+  onWardSelect?: (wardCode: string | null) => void;
+  drawerFooter?: ReactNode;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [selected, setSelected] = useState<Ward | null>(null);
+  const isControlled = selectedCode !== undefined;
+  const [internalSelected, setInternalSelected] = useState<Ward | null>(null);
+  // Lets the (long-lived) Leaflet handlers read the current selection.
+  const activeCode = useRef<string | null>(null);
+  const restyleAll = useRef<(() => void) | null>(null);
+
+  // Roads layer: built once Leaflet has loaded; the toggle adds or removes it.
+  // showRoadsRef covers a click that lands before that.
   const [showRoads, setShowRoads] = useState(false);
-  // The road layer is built once Leaflet has loaded; this effect-driven toggle
-  // adds or removes it. showRoadsRef covers a click that lands before that.
   const mapRef = useRef<import("leaflet").Map | null>(null);
   const roadLayer = useRef<LGeoJSON | null>(null);
   const showRoadsRef = useRef(false);
-  // Lets the (long-lived) Leaflet handlers read the current selection.
-  const selectedCode = useRef<string | null>(null);
-  const restyleAll = useRef<(() => void) | null>(null);
+
   // "My location": the Leaflet module (loaded client-side), and the marker group
   // for the user's position so it can be replaced on each lookup.
   const leafletRef = useRef<typeof import("leaflet") | null>(null);
@@ -70,13 +88,33 @@ export default function WardMap({
     accuracy: number;
   } | null>(null);
 
+  const wardByCode = useMemo(
+    () => new Map(wards.map((w) => [w.ward_code, w])),
+    [wards],
+  );
+  const selected = isControlled
+    ? selectedCode
+      ? wardByCode.get(selectedCode) ?? null
+      : null
+    : internalSelected;
+
+  const select = useCallback(
+    (ward: Ward | null) => {
+      if (!isControlled) setInternalSelected(ward);
+      onWardSelect?.(ward ? ward.ward_code : null);
+    },
+    [isControlled, onWardSelect],
+  );
+
   useEffect(() => {
-    selectedCode.current = selected?.ward_code ?? null;
+    activeCode.current = selected?.ward_code ?? null;
     restyleAll.current?.();
   }, [selected]);
 
   // Asks for the browser's location permission (the browser shows the prompt on
-  // this click), then centres and zooms the map on the position it returns.
+  // this click), then centres on the position, drops a marker, and opens the
+  // ward the point falls in. Ward polygons are a Voronoi approximation around
+  // the ward centroids, so the nearest centroid IS the ward you fall under.
   function locateMe() {
     if (!navigator.geolocation) {
       setLocStatus("unsupported");
@@ -109,8 +147,21 @@ export default function WardMap({
             fillOpacity: 1,
             interactive: false,
           }).addTo(userLayer.current);
-          map.flyTo([lat, lng], 16, { duration: 1.2 });
+          map.flyTo([lat, lng], 14, { duration: 1.2 });
         }
+        // Which ward does this point fall under? Nearest centroid wins.
+        let best = wards[0];
+        let bestD = Number.POSITIVE_INFINITY;
+        for (const w of wards) {
+          const dLat = w.centroid_lat - lat;
+          const dLon = (w.centroid_lon - lng) * Math.cos((lat * Math.PI) / 180);
+          const d = dLat * dLat + dLon * dLon;
+          if (d < bestD) {
+            bestD = d;
+            best = w;
+          }
+        }
+        select(best ?? null);
         setCoords({ lat, lng, accuracy });
         setLocStatus("ok");
       },
@@ -143,16 +194,17 @@ export default function WardMap({
 
       leafletRef.current = L;
       const byCode = new Map(wards.map((w) => [w.ward_code, w]));
-      map = L.map(el, { scrollWheelZoom: true }).setView([19.07, 72.88], 11);
+      const theMap = L.map(el, { scrollWheelZoom: true }).setView([19.07, 72.88], 11);
+      map = theMap;
 
       L.tileLayer(
         "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
         { maxZoom: 16, attribution: "Tiles &copy; Esri" },
-      ).addTo(map);
+      ).addTo(theMap);
 
       const polys = new Map<string, Path>();
       const styleFor = (code: string) =>
-        selectedCode.current === code ? SELECTED : BASE;
+        activeCode.current === code ? SELECTED : BASE;
 
       const layer = L.geoJSON(outlines as Outlines, {
         style: BASE,
@@ -169,11 +221,11 @@ export default function WardMap({
             mouseover: () => poly.setStyle(HOVER),
             mouseout: () => poly.setStyle(styleFor(code)),
             click: () => {
-              if (ward) setSelected(ward);
+              if (ward) select(ward);
             },
           });
         },
-      }).addTo(map);
+      }).addTo(theMap);
 
       restyleAll.current = () =>
         polys.forEach((poly, code) => poly.setStyle(styleFor(code)));
@@ -182,7 +234,7 @@ export default function WardMap({
       map.fitBounds(layer.getBounds(), { padding: [16, 16] });
 
       // Roads sit in their own pane above the ward fills.
-      map.createPane("roads").style.zIndex = "450";
+      theMap.createPane("roads").style.zIndex = "450";
       const weights = new Map(ROAD_WEIGHTS);
       roadLayer.current = L.geoJSON(roads as Roads, {
         pane: "roads",
@@ -204,8 +256,8 @@ export default function WardMap({
           });
         },
       });
-      mapRef.current = map;
-      if (showRoadsRef.current) roadLayer.current.addTo(map);
+      mapRef.current = theMap;
+      if (showRoadsRef.current) roadLayer.current.addTo(theMap);
     });
 
     return () => {
@@ -217,7 +269,7 @@ export default function WardMap({
       userLayer.current = null;
       map?.remove();
     };
-  }, [wards, outlines, roads]);
+  }, [wards, outlines, roads, select]);
 
   return (
     <div className="absolute inset-0">
@@ -272,7 +324,7 @@ export default function WardMap({
                   {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
                 </span>
                 <span className="block text-xs">
-                  Accuracy about {Math.round(coords.accuracy)} m
+                  Accuracy about {Math.round(coords.accuracy)} m — your ward is highlighted.
                 </span>
               </>
             ) : locStatus === "locating" ? (
@@ -314,7 +366,7 @@ export default function WardMap({
             </div>
             <button
               type="button"
-              onClick={() => setSelected(null)}
+              onClick={() => select(null)}
               className="grid size-8 flex-none place-items-center rounded-full text-lg text-[#4a4f52] hover:bg-[rgba(43,48,51,.14)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ee7454]"
               aria-label="Close"
             >
@@ -338,12 +390,11 @@ export default function WardMap({
           <p className="mt-2 text-sm text-[#4a4f52]">
             {selected.assistant_commissioner_office}
           </p>
-          <a
-            href={`/ward/${selected.ward_code.replace("/", "-")}`}
-            className="mt-4 inline-flex h-10 items-center rounded-full bg-[#ee7454] px-5 font-[family-name:var(--font-bricolage)] text-sm font-semibold text-white hover:bg-[#e0603f]"
-          >
-            Open ward report →
-          </a>
+          {drawerFooter ? (
+            <div className="mt-3 border-t-2 border-dotted border-[rgba(43,48,51,.14)] pt-3">
+              {drawerFooter}
+            </div>
+          ) : null}
         </aside>
       )}
     </div>

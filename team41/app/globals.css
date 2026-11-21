@@ -25,6 +25,28 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Every clickable control shows the hand cursor on hover */
+button:not(:disabled),
+[role="button"]:not(:disabled),
+[role="tab"],
+[role="switch"],
+[role="option"] {
+  cursor: pointer;
+}
+
+/* Mobile bottom sheet (audit panel popup) */
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.sheet-panel {
+  animation: sheet-up 280ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 /* Leaflet ward tooltip, matched to the landing page */
 .leaflet-tooltip.ward-tip {
   background: #fff;
