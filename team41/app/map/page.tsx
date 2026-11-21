@@ -2,11 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import SiteHeader from "@/components/site-header";
 import { fontVars, inter } from "@/lib/fonts";
-import {
-  loadAuditFlags,
-  loadContractorScores,
-  loadWardSimulator,
-} from "./audit";
+import { loadAuditFlags } from "./audit";
 import { loadRoads, loadWardOutlines, loadWards } from "./data";
 import MapExperience from "./MapExperience";
 import { loadTrailIndex } from "./trail";
@@ -14,7 +10,7 @@ import { loadTrailIndex } from "./trail";
 export const metadata = {
   title: "Ward map · Follow the Rupee",
   description:
-    "Mumbai BMC ward map with an audit simulation: recoverable rupees, contractor fairness and a monsoon spend simulator (synthetic data)",
+    "Mumbai BMC ward map: complaints, accidents, flood spots, schools, hospitals and roads as layers; click a ward to open it (synthetic data)",
 };
 
 // Static shell — the data-dependent body streams in via Suspense so the route
@@ -36,37 +32,24 @@ export default function MapPage() {
 }
 
 async function MapBody() {
-  // Read the data files per request rather than at build time.
+  // Query Postgres per request rather than at build time.
   await connection();
-  const [wards, outlines, roads, audit, scores, simulator, trail] =
-    await Promise.all([
-      loadWards(),
-      loadWardOutlines(),
-      loadRoads(),
-      loadAuditFlags(),
-      loadContractorScores(),
-      loadWardSimulator(),
-      loadTrailIndex(),
-    ]);
+  const [wards, outlines, roads, audit, trail] = await Promise.all([
+    loadWards(),
+    loadWardOutlines(),
+    loadRoads(),
+    loadAuditFlags(),
+    loadTrailIndex(),
+  ]);
 
-  return (
-    <MapExperience
-      wards={wards}
-      outlines={outlines}
-      roads={roads}
-      audit={audit}
-      scores={scores}
-      simulator={simulator}
-      trail={trail}
-    />
-  );
+  return <MapExperience wards={wards} outlines={outlines} roads={roads} audit={audit} trail={trail} />;
 }
 
 function MapFallback() {
   return (
-    <main className="flex min-h-0 flex-1 flex-col gap-4 px-5 pb-5 pt-2 sm:px-[max(20px,6%)] lg:flex-row">
-      <div className="h-[120px] flex-none animate-pulse rounded-xl bg-white/70" />
-      <div className="h-[46dvh] flex-1 animate-pulse rounded-2xl bg-white/70" />
+    <main className="flex min-h-0 flex-1 flex-col gap-3 px-5 pb-5 pt-3 sm:px-[max(20px,6%)]">
+      <div className="h-[110px] flex-none animate-pulse rounded-2xl bg-white/70" />
+      <div className="h-[68dvh] animate-pulse rounded-2xl bg-white/70 lg:h-auto lg:flex-1" />
     </main>
   );
 }

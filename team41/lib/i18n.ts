@@ -54,7 +54,6 @@ const UI = {
   // menu
   nav_wards: { en: "Wards", hi: "वार्ड", mr: "वॉर्ड" },
   nav_audit: { en: "Wasted money", hi: "बर्बाद पैसा", mr: "वाया गेलेला पैसा" },
-  nav_heat: { en: "Heatmap", hi: "हीटमैप", mr: "हीटमॅप" },
   nav_plan: { en: "Next rupee", hi: "अगला रुपया", mr: "पुढचा रुपया" },
   nav_people: { en: "People", hi: "लोग", mr: "लोक" },
   nav_flood: { en: "Flood watch", hi: "बाढ़ निगरानी", mr: "पूर निरीक्षण" },
