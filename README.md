@@ -2,6 +2,7 @@
 
 > **Every Mumbai monsoon road-repair rupee, traced from citizen complaint to repair outcome — with fair contractor accountability and a next-rupee budget plan.**  
 > Built in [`team41/`](team41/) with **Next.js 16 · React 19 · Leaflet · Neon Postgres · Python Analytics · Claude AI**.
+>
 > **Live app:** [https://followtherupee.vercel.app](https://followtherupee.vercel.app)
 
 > [!NOTE]
