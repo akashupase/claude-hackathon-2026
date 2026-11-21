@@ -5,7 +5,6 @@ import { connection } from "next/server";
 import PageShell, { LABEL, MUTED, Stat } from "@/components/page-shell";
 import { logout } from "./actions";
 import AdminWorkspace, { type AdminData } from "@/components/admin/workspace";
-import AIPanel from "@/components/admin/ai-panel";
 import { getUser } from "@/lib/auth";
 import { inr, fmt, loadRupee, wardSlug } from "@/lib/rupee";
 
@@ -81,7 +80,6 @@ async function Dashboard({ searchParams }: { searchParams: Promise<Record<string
       </div>
 
       <AdminWorkspace data={workspace} />
-      <AIPanel ward={w?.ward_code} scopeLabel={w ? `Ward ${w.ward_code} · ${w.ward_name}` : "All 24 wards"} />
     </>
   );
 }
