@@ -87,6 +87,54 @@
    "Cold mix patch": 7535883,
    "Hot mix patch": 5346417
   },
+  "method_economics": {
+   "Pothole": [
+    {
+     "method": "Cold mix patch",
+     "jobs": 602,
+     "avg_cost_inr": 12518,
+     "fail_pct": 32,
+     "cost_per_lasting_fix_inr": 18470
+    },
+    {
+     "method": "Hot mix patch",
+     "jobs": 318,
+     "avg_cost_inr": 16812,
+     "fail_pct": 23,
+     "cost_per_lasting_fix_inr": 21733
+    },
+    {
+     "method": "Mastic asphalt",
+     "jobs": 298,
+     "avg_cost_inr": 29184,
+     "fail_pct": 26,
+     "cost_per_lasting_fix_inr": 39353
+    }
+   ],
+   "Waterlogging": [
+    {
+     "method": "Dewatering pump deployed",
+     "jobs": 200,
+     "avg_cost_inr": 64419,
+     "fail_pct": 14,
+     "cost_per_lasting_fix_inr": 74906
+    },
+    {
+     "method": "Drain desilting",
+     "jobs": 221,
+     "avg_cost_inr": 96132,
+     "fail_pct": 26,
+     "cost_per_lasting_fix_inr": 130338
+    },
+    {
+     "method": "Pump + debris removal",
+     "jobs": 198,
+     "avg_cost_inr": 118003,
+     "fail_pct": 22,
+     "cost_per_lasting_fix_inr": 151719
+    }
+   ]
+  },
   "connections": {
    "accidents_while_pending": 85,
    "pending_fatal": 3,
@@ -748,8 +796,8 @@
    "flagged_inr": 523680,
    "flag_counts": {
     "Paid during DLP": 9,
-    "Possible double billing": 1,
-    "Over-billed": 1
+    "Over-billed": 1,
+    "Possible double billing": 1
    },
    "complaints": 69,
    "complaints_open_not_fixed": 8,
@@ -1491,8 +1539,8 @@
    "flagged_inr": 564236,
    "flag_counts": {
     "Paid during DLP": 11,
-    "Possible double billing": 1,
-    "Over-billed": 1
+    "Over-billed": 1,
+    "Possible double billing": 1
    },
    "complaints": 88,
    "complaints_open_not_fixed": 7,
@@ -4455,8 +4503,8 @@
    "flagged_inr": 2283487,
    "flag_counts": {
     "Paid during DLP": 29,
-    "Possible double billing": 1,
-    "Over-billed": 1
+    "Over-billed": 1,
+    "Possible double billing": 1
    },
    "complaints": 167,
    "complaints_open_not_fixed": 12,

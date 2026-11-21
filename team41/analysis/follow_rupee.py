@@ -624,6 +624,19 @@ def main():
     summary["flag_confidence"] = flags.confidence.value_counts().to_dict()
     summary["social"] = soc_stats
     summary["spend_by_method"] = {k: int(v) for k, v in wo.groupby("repair_method").cost_inr.sum().sort_values(ascending=False).items()}
+    # cost per fix that lasts 30 days, by method, for each issue type (shown on the Next rupee page)
+    econ = {}
+    for wt, g in wo.groupby("work_type"):
+        rows = []
+        for m, h in g.groupby("repair_method"):
+            if len(h) < 30:
+                continue
+            fail = float((h.reopened_within_30d == "Y").mean())
+            rows.append(dict(method=m, jobs=len(h), avg_cost_inr=int(h.cost_inr.mean()), fail_pct=round(100 * fail),
+                             cost_per_lasting_fix_inr=int(h.cost_inr.mean() / max(1e-9, 1 - fail))))
+        if len(rows) > 1:
+            econ[wt] = sorted(rows, key=lambda r: r["cost_per_lasting_fix_inr"])
+    summary["method_economics"] = econ
     pend = cx["pending"]
     summary["connections"] = dict(
         accidents_while_pending=len(pend), pending_fatal=sum(p["severity"] == "Fatal" for p in pend),

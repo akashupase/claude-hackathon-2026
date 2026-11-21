@@ -14,7 +14,10 @@ export type Flag = {
 export type PlanItem = {
   road_id: string; road: string; risk: number; issue: string; action: string;
   est_cost_inr: number; running_inr: number; funded_by: "budget" | "recovered money" | "next allocation"; why: string;
+  act: "fix" | "resurface" | "dlp"; method: string; open_complaints: number; emergency: boolean; accidents_pending: number;
+  flood_spot: string; tide_no_pump: boolean; accidents: number; hospital: boolean; school: boolean; congestion: number; failed_before: number;
 };
+export type MethodEcon = { method: string; jobs: number; avg_cost_inr: number; fail_pct: number; cost_per_lasting_fix_inr: number };
 export type Post = { kind: string; source: string; text: string; reach: number; date: string; unreported: boolean };
 export type Hotspot = {
   name: string; ward_code: string; tide_sensitive: boolean; pump_station: boolean; threshold_mm: number;
@@ -67,6 +70,7 @@ export type Rupee = {
       tide_effect: { dry: number; heavy_only: number; heavy_and_big_tide: number }; jobs_per_crew_vs_sla_corr: number };
     rules: { overbill_ratio: number; double_bill_days: number };
     files_used: string[];
+    method_economics: Record<string, MethodEcon[]>;
   };
   contractors: Contractor[]; wards: Ward[]; flags: Flag[]; W: Record<string, WO>; C: Record<string, Complaint>;
   calendar: { date: string; height_m: number }[];

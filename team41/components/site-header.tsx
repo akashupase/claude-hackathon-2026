@@ -36,7 +36,6 @@ function Mark() {
 export const MENU: { href: string; key: Key; match: (p: string) => boolean }[] = [
   { href: "/", key: "nav_home", match: (p) => p === "/" },
   { href: "/map", key: "nav_map", match: (p) => p.startsWith("/map") },
-  { href: "/wards", key: "nav_wards", match: (p) => p.startsWith("/ward") },
   { href: "/audit", key: "nav_audit", match: (p) => p.startsWith("/audit") },
   { href: "/plan", key: "nav_plan", match: (p) => p.startsWith("/plan") },
   { href: "/contractors", key: "nav_contractors", match: (p) => p.startsWith("/contractors") },
