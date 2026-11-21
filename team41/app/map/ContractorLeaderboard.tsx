@@ -190,7 +190,7 @@ function LeaderRow({
       }}
     >
       <div
-        className={`h-[88px] rounded-xl px-3 py-2 transition-colors duration-500 ${
+        className={`h-[88px] rounded-xl px-3.5 py-2 transition-colors duration-500 ${
           rank === 1
             ? "bg-white shadow-[0_0_0_1.5px_#ee7454]"
             : fair
@@ -225,25 +225,36 @@ function LeaderRow({
                 </span>
               )}
             </div>
-            <div className="mt-0.5 flex gap-3 text-[11.5px] tabular-nums text-[#4a4f52]">
-              <span>
-                On time <span className="text-[#2b3033]">{(fair ? c.adjusted.sla_met_pct : raw.sla_met_pct).toFixed(0)}%</span>
+            <div className="mt-1 grid w-max grid-cols-2 gap-x-4 gap-y-0.5 text-[11.5px] tabular-nums text-[#4a4f52]">
+              <span className="whitespace-nowrap">
+                On time{" "}
+                <span className="text-[#2b3033]">
+                  {(fair ? c.adjusted.sla_met_pct : raw.sla_met_pct).toFixed(0)}%
+                </span>
               </span>
-              <span>
-                Failed again <span className="text-[#2b3033]">{(fair ? c.adjusted.reopen_pct : raw.reopen_pct).toFixed(0)}%</span>
+              <span className="whitespace-nowrap">
+                Failed again{" "}
+                <span className="text-[#2b3033]">
+                  {(fair ? c.adjusted.reopen_pct : raw.reopen_pct).toFixed(0)}%
+                </span>
               </span>
-              <span className="hidden sm:inline">
-                Total billed <span className="text-[#2b3033]">{formatInrShort(raw.total_billed_inr)}</span>
+              <span className="whitespace-nowrap">
+                Billed{" "}
+                <span className="text-[#2b3033]">{formatInrShort(raw.total_billed_inr)}</span>
               </span>
-              <span className="hidden md:inline">
-                vs govt rate{" "}
-                <span className={raw.avg_cost_vs_expected_pct > 115 ? "text-[#b23a1d]" : "text-[#2b3033]"}>
+              <span className="whitespace-nowrap">
+                vs rate{" "}
+                <span
+                  className={
+                    raw.avg_cost_vs_expected_pct > 115 ? "text-[#b23a1d]" : "text-[#2b3033]"
+                  }
+                >
                   +{(raw.avg_cost_vs_expected_pct - 100).toFixed(0)}%
                 </span>
               </span>
             </div>
           </div>
-          <span className="flex-none text-right">
+          <span className="flex-none pl-2 text-right">
             <span className="font-[family-name:var(--font-bricolage)] text-[17px] font-semibold tabular-nums">
               {score.toFixed(1)}
             </span>
