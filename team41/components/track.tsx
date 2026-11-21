@@ -7,6 +7,12 @@ const CARD = "rounded-2xl bg-white shadow-[0_0_0_1px_rgba(43,48,51,.12),0_18px_4
 const B = "font-[family-name:var(--font-bricolage)]";
 const GREEN = "#0ca30c", ORANGE = "#ec835a", RED = "#d03b3b", BLUE = "#2a78d6", GREY = "#9aa3ad";
 
+// One rule for a work order's status, used by the road strip dots and the journey banner alike:
+// any audit flag wins (red), then a fix that failed within 30 days (orange), else it lasted (green).
+export type Outcome = "flagged" | "failed" | "held";
+export const outcomeOf = (w: WO): Outcome => (w[8] ? "flagged" : w[7] === "Y" ? "failed" : "held");
+const OUTCOME_COLOUR: Record<Outcome, string> = { flagged: RED, failed: ORANGE, held: GREEN };
+
 /* ---------- story cards (the showcase) ---------- */
 export function StoryCards({ D, lang }: { D: Rupee; lang: Lang }) {
   const over = D.flags.find((f) => f.work_order_id === "WO25-01005");
@@ -45,14 +51,20 @@ export function Journey({ lang, complaint, cid, woId, wo, flags = [] }: { lang: 
   const T = (k: Parameters<typeof t>[1]) => t(lang, k);
   // verdict
   let verdict: string, color: string, icon: string;
+  let outcomeNote = "";
   if (wo) {
     const failed = wo[7] === "Y";
-    verdict = failed ? T("v_failed") : T("v_held"); color = failed ? ORANGE : GREEN; icon = failed ? "↺" : "✓";
+    verdict = failed ? T("v_failed") : T("v_held"); icon = failed ? "↺" : "✓";
+    color = OUTCOME_COLOUR[outcomeOf(wo)];
     // A billing problem is the real story, so it leads (English only; translations come later).
     const dbl = flags.find((f) => f.flag === "Possible double billing");
     const over = flags.find((f) => f.flag === "Over-billed");
-    if (dbl) { verdict = `Possible double bill: same job as ${dbl.twin}, ${dbl.gap_days} day${dbl.gap_days === 1 ? "" : "s"} apart`; color = RED; icon = "×2"; }
-    else if (over) { verdict = `Billed ${over.ratio}× the rate card (expected about ${inr(over.expected_inr ?? 0)})`; color = RED; icon = `${over.ratio}×`; }
+    const dlp = flags.find((f) => f.flag === "Paid during DLP");
+    if (dbl) { verdict = `Possible double bill: same job as ${dbl.twin}, ${dbl.gap_days} day${dbl.gap_days === 1 ? "" : "s"} apart`; icon = "×2"; }
+    else if (over) { verdict = `Billed ${over.ratio}× the rate card (expected about ${inr(over.expected_inr ?? 0)})`; icon = `${over.ratio}×`; }
+    else if (dlp) { verdict = `BMC paid ${inr(wo[4])} while the road was under warranty`; icon = "₹"; }
+    else if (wo[8]) { verdict = `Flagged: ${wo[8]}`; icon = "!"; }
+    if (wo[8]) outcomeNote = failed ? "The repair itself failed within 30 days." : "The repair itself lasted 30+ days.";
   } else {
     const st = complaint?.[4] ?? "";
     verdict = st.startsWith("Closed - Duplicate") ? T("v_dup") : st.startsWith("Forwarded") || st.startsWith("Rejected") ? T("v_fwd") : T("v_never");
@@ -65,7 +77,7 @@ export function Journey({ lang, complaint, cid, woId, wo, flags = [] }: { lang: 
   if (wo) {
     steps.push({ label: T("st_assigned"), when: wo[10].slice(0, 10), state: "done" });
     steps.push({ label: T("st_started"), when: wo[11].slice(0, 10), state: "done" });
-    steps.push({ label: T("st_done"), when: wo[12].slice(0, 10), state: wo[6] === "Y" ? "good" : "bad" });
+    steps.push({ label: wo[6] === "Y" ? T("st_done") : `${T("st_done")} (late)`, when: wo[12].slice(0, 10), state: wo[6] === "Y" ? "good" : "bad" });
     steps.push({ label: T("st_30"), state: wo[7] === "Y" ? "bad" : "good" });
   } else {
     [T("st_assigned"), T("st_done"), T("st_30")].forEach((l) => steps.push({ label: l, state: "todo" }));
@@ -84,6 +96,7 @@ export function Journey({ lang, complaint, cid, woId, wo, flags = [] }: { lang: 
           <div className="text-sm text-white/90">
             {cid && <>{cid} · </>}{woId && <>{woId} · </>}{t(lang, "ward")} {complaint?.[0] || wo?.[0]}
             {(complaint?.[2]) && <> · {issue(lang, complaint[2])}</>}
+            {outcomeNote && <> · {outcomeNote}</>}
           </div>
         </div>
       </div>
@@ -159,7 +172,7 @@ export function RoadStory({ D, lang, road, ids }: { D: Rupee; lang: Lang; road: 
   const jobs = ids.map((id) => ({ id, w: D.W[id] })).sort((a, b) => a.w[12].localeCompare(b.w[12]));
   const start = new Date("2025-06-01").getTime(), end = new Date("2025-10-16").getTime();
   const pos = (d: string) => Math.min(100, Math.max(0, ((new Date(d.slice(0, 10)).getTime() - start) / (end - start)) * 100));
-  const colorOf = (w: WO) => (w[8] ? RED : w[7] === "Y" ? ORANGE : GREEN);
+  const colorOf = (w: WO) => OUTCOME_COLOUR[outcomeOf(w)];
   const lasted = jobs.filter((j) => j.w[7] === "N").length;
   const flagged = jobs.filter((j) => j.w[8]).length;
   const months = T("months").split("|");

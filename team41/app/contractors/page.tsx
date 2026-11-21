@@ -1,86 +1,93 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
-import PageShell, { CARD, H1, H2, LABEL, MUTED, NUM } from "@/components/page-shell";
+import PageShell, { H1, MUTED } from "@/components/page-shell";
 import EndorseButton from "@/components/endorse-button";
 import { inr, loadRupee } from "@/lib/rupee";
 
 export const metadata = { title: "Contractors · Follow the Rupee" };
 
+const B = "font-[family-name:var(--font-bricolage)]";
+const CARD = "rounded-2xl bg-white shadow-[0_0_0_1px_rgba(43,48,51,.12),0_18px_40px_-26px_rgba(0,0,0,.35)]";
 const GRADE = { A: "bg-[#15803d]", B: "bg-[#65a30d]", C: "bg-[#b45309]", D: "bg-[#c2410c]" };
 const ORDER = { A: 0, B: 1, C: 2, D: 3 };
+const firstSentence = (t: string) => (t.match(/^.*?[.!?](\s|$)/)?.[0] ?? t).trim();
 
 async function Contractors() {
   await connection();
   const D = await loadRupee();
   const ranked = [...D.contractors].sort((a, b) => ORDER[a.grade] - ORDER[b.grade] || b.durability_vs_expected_pp - a.durability_vs_expected_pp);
-  const cmp = (a: number, e: number, hi: boolean) => ((hi ? a >= e : a <= e) ? "text-[#15803d]" : "text-[#c2410c]");
+  const better = ranked.filter((c) => c.reopen_pct <= c.reopen_expected_pct - 5).length;
+  const worse = ranked.filter((c) => c.reopen_pct >= c.reopen_expected_pct + 5).length;
+  const scale = Math.max(...ranked.map((c) => Math.max(c.reopen_pct, c.reopen_expected_pct))) + 5;
+
   return (
     <>
-      <section className={`${CARD} mt-6`}>
-        <h2 className="font-[family-name:var(--font-bricolage)] text-xl font-semibold">Ranking</h2>
-        <ol className="mt-2">
-          {ranked.map((c, i) => (
-            <li key={c.contractor_id} className="grid grid-cols-[28px_1fr_auto] items-center gap-3 border-t border-[rgba(43,48,51,.12)] py-3 sm:grid-cols-[28px_1fr_auto_auto]">
-              <span className={`${NUM} ${MUTED}`}>{i + 1}</span>
-              <span><a className="font-[family-name:var(--font-bricolage)] font-semibold hover:text-[#ee7454]" href={`#${c.contractor_id}`}>{c.short}</a>
-                <span className={`block text-sm ${MUTED}`}>{c.jobs} jobs · {inr(c.billed_inr)}</span></span>
-              <span className={`hidden text-sm sm:block ${MUTED}`}>fixes failed {c.reopen_pct}% (expected {c.reopen_expected_pct}%)</span>
-              <span className={`grid size-9 place-items-center rounded-lg font-[family-name:var(--font-bricolage)] text-lg font-semibold text-white ${GRADE[c.grade]}`}>{c.grade}</span>
-            </li>
-          ))}
-        </ol>
-      </section>
+      <p className={`${B} mt-3 max-w-[40em] text-[clamp(20px,2.2vw,26px)] font-semibold leading-snug`}>
+        {better} contractors&apos; repairs last longer than expected for the same work; {worse} fail clearly more often.
+      </p>
+      <p className={`mt-2 max-w-[46em] ${MUTED}`}>
+        Fair comparison: each contractor is measured against what an average contractor would get on the <i>same</i> jobs: same repair methods, equally flood-prone wards, same heavy-rain weeks.
+      </p>
 
-      <h2 className={H2}>Good work</h2>
-      <p className={MUTED}>Repairs lasted longer and were faster than expected. Citizens can endorse them for future work in their ward (saved in this browser only; the prototype has no shared database).</p>
-      <div className="mt-3 grid gap-4 md:grid-cols-3">
-        {ranked.filter((c) => c.grade === "A" || c.grade === "B").map((c) => (
-          <div key={c.contractor_id} className={`${CARD} bg-[#f0fdf4]`}>
-            <div className={LABEL}>Grade {c.grade}</div>
-            <h3 className="mt-1 font-[family-name:var(--font-bricolage)] text-lg font-semibold">{c.short}</h3>
-            <p className="mt-2 text-[15px]">Fixes failed {c.reopen_pct}% of the time against {c.reopen_expected_pct}% expected; {c.sla_met_pct}% on time ({c.sla_expected_pct}% expected).</p>
-            <div className="mt-3"><EndorseButton id={c.contractor_id} /></div>
-          </div>
-        ))}
-      </div>
-
-      <h2 className={H2}>All scorecards</h2>
-      <div className="grid gap-4 md:grid-cols-2">
-        {ranked.map((c) => (
-          <article key={c.contractor_id} id={c.contractor_id} className={`${CARD} scroll-mt-24`}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="font-[family-name:var(--font-bricolage)] text-lg font-semibold">{c.short}</h3>
-                <div className={`text-sm ${MUTED}`}>{c.jobs} jobs · {inr(c.billed_inr)} · empanelled since {c.empanelled_since}</div>
+      <div className={`${CARD} mt-6 divide-y divide-[rgba(43,48,51,.1)]`}>
+        <div className={`hidden grid-cols-[44px_1fr_minmax(220px,300px)] gap-4 px-5 py-2 text-xs uppercase tracking-[.06em] sm:grid ${MUTED}`}>
+          <span /> <span>Contractor</span>
+          <span>Fixes that failed within 30 days <span className="normal-case tracking-normal">(| = expected)</span></span>
+        </div>
+        {ranked.map((c) => {
+          // within 5 points of expected counts as normal variation (same band the grade uses)
+          const diff = c.reopen_pct - c.reopen_expected_pct;
+          const tone = diff >= 5 ? "bad" : diff <= -5 ? "good" : "normal";
+          const billing = (c.flags["Over-billed"] ?? 0) + (c.flags["Possible double billing"] ?? 0);
+          return (
+            <div key={c.contractor_id} id={c.contractor_id} className="scroll-mt-24 px-5 py-4">
+              <div className="grid grid-cols-[44px_1fr] items-start gap-4 sm:grid-cols-[44px_1fr_minmax(220px,300px)]">
+                <span className={`${B} grid size-11 place-items-center rounded-xl text-xl font-semibold text-white ${GRADE[c.grade]}`}>{c.grade}</span>
+                <div className="min-w-0">
+                  <div className={`${B} text-lg font-semibold leading-tight`}>{c.short}</div>
+                  <p className="mt-0.5 text-[15px] text-[#4a4f52]">{firstSentence(c.text)}</p>
+                </div>
+                {/* one visual: actual failure rate, with the expected rate marked */}
+                <div className="col-span-2 sm:col-span-1">
+                  <div className="relative h-3 rounded-full bg-[rgba(43,48,51,.08)]">
+                    <div className={`absolute inset-y-0 left-0 rounded-full ${tone === "bad" ? "bg-[#d03b3b]" : tone === "good" ? "bg-[#0ca30c]" : "bg-[#d9a441]"}`} style={{ width: `${(100 * c.reopen_pct) / scale}%` }} />
+                    <div className="absolute -inset-y-1 w-[3px] rounded bg-[#2b3033]" style={{ left: `${(100 * c.reopen_expected_pct) / scale}%` }} title="Expected" />
+                  </div>
+                  <div className="mt-1 text-sm">
+                    <b className={tone === "bad" ? "text-[#c2410c]" : tone === "good" ? "text-[#15803d]" : "text-[#92400e]"}>{c.reopen_pct}%</b>
+                    <span className={MUTED}> vs {c.reopen_expected_pct}% expected{tone === "normal" ? " · about as expected" : ""}</span>
+                  </div>
+                </div>
               </div>
-              <span className={`grid size-11 flex-none place-items-center rounded-xl font-[family-name:var(--font-bricolage)] text-2xl font-semibold text-white ${GRADE[c.grade]}`}>{c.grade}</span>
+              <div className="mt-2 flex flex-wrap items-center gap-3 pl-[60px]">
+                {(c.grade === "A" || c.grade === "B") && <EndorseButton id={c.contractor_id} />}
+                <details className="text-sm">
+                  <summary className="cursor-pointer text-[#4a4f52] underline decoration-dotted">Show evidence</summary>
+                  <div className="mt-2 max-w-[60em] space-y-1.5 rounded-xl bg-[#faf3eb] p-3">
+                    <p>{c.text}</p>
+                    <p>Deadlines met: <b>{c.sla_met_pct}%</b> (expected {c.sla_expected_pct}%) · Typical cost vs rate card: <b>{c.median_cost_ratio}×</b> · Over-billed or repeat bills: <b>{billing}</b> of {c.jobs} jobs · Billed {inr(c.billed_inr)}</p>
+                    <p className={MUTED}>Context: {c.low_lying_share_pct}% of jobs in highly flood-prone wards, {c.heavy_rain_share_pct}% with heavy rain within a week, {c.cold_mix_share_pct}% cold-mix patches.</p>
+                    {c.evidence.length > 0 && (
+                      <p>Flagged work orders: {c.evidence.map((id, i) => <span key={id}>{i > 0 && ", "}<Link className="underline hover:text-[#ee7454]" href={`/track?q=${id}`}>{id}</Link></span>)}</p>
+                    )}
+                  </div>
+                </details>
+              </div>
             </div>
-            <p className="mt-3">{c.text}</p>
-            <dl className="mt-3 divide-y divide-dotted divide-[rgba(43,48,51,.2)] text-[15px]">
-              <div className="flex justify-between py-1.5"><dt className={MUTED}>Deadlines met</dt><dd className={cmp(c.sla_met_pct, c.sla_expected_pct, true)}>{c.sla_met_pct}% <span className={MUTED}>(expected {c.sla_expected_pct}%)</span></dd></div>
-              <div className="flex justify-between py-1.5"><dt className={MUTED}>Fixes failed in 30 days</dt><dd className={cmp(c.reopen_pct, c.reopen_expected_pct, false)}>{c.reopen_pct}% <span className={MUTED}>(expected {c.reopen_expected_pct}%)</span></dd></div>
-              <div className="flex justify-between py-1.5"><dt className={MUTED}>Typical cost vs rate card</dt><dd>{c.median_cost_ratio}×</dd></div>
-              <div className="flex justify-between py-1.5"><dt className={MUTED}>Over-billed / repeat bills</dt><dd>{c.flags["Over-billed"] ?? 0} / {c.flags["Possible double billing"] ?? 0}</dd></div>
-            </dl>
-            <p className={`mt-3 text-sm ${MUTED}`}>
-              Context: {c.low_lying_share_pct}% of jobs in highly flood-prone wards, {c.heavy_rain_share_pct}% with heavy rain within a week, {c.cold_mix_share_pct}% cold-mix patches.
-              {c.evidence.length > 0 && <> Evidence: {c.evidence.map((id, i) => <span key={id}>{i > 0 && ", "}<Link className="underline" href={`/track?q=${id}`}>{id}</Link></span>)}.</>}
-            </p>
-          </article>
-        ))}
+          );
+        })}
       </div>
 
-      <h2 className={H2}>How the grade works</h2>
-      <div className={CARD}>
-        <p>Each contractor is compared with what an <b>average contractor would get on the same jobs</b>: the same repair methods, in equally flood-prone wards, with the same heavy-rain weeks.</p>
-        <ul className="mt-2 list-disc space-y-1 pl-5">
-          <li><b>Durability</b> (fixes that last): 5+ points better than expected = +2, 5+ worse = −2. Counts double because a failed fix is paid for twice.</li>
-          <li><b>Speed</b> (deadlines met): 5+ points better = +1, 5+ worse = −1.</li>
+      <details className={`${CARD} mt-5 p-5`}>
+        <summary className={`${B} cursor-pointer font-semibold`}>How the grade works</summary>
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-[15px]">
+          <li><b>Durability</b> (fixes that last), against expected: 5+ points better = +2, 5+ worse = −2. Counts double: a failed fix is paid for twice.</li>
+          <li><b>Speed</b> (deadlines met), against expected: 5+ points better = +1, 5+ worse = −1.</li>
           <li><b>Billing</b>: over-billed and repeat bills above 5% of jobs = −2, above 1% = −1.</li>
-          <li>Grade: 2+ points = A, 0 to 1 = B, −1 to −2 = C, below = D. DLP payments are a BMC payment check and are not counted.</li>
+          <li>2+ points = A, 0 to 1 = B, −1 to −2 = C, lower = D. Warranty (DLP) payments are BMC&apos;s decision, so they are not counted against contractors.</li>
         </ul>
-      </div>
+      </details>
     </>
   );
 }
@@ -88,10 +95,8 @@ async function Contractors() {
 export default function ContractorsPage() {
   return (
     <PageShell current="contractors">
-      <div className={LABEL}>Hold to account, fairly</div>
-      <h1 className={`${H1} mt-2`}>Who did the work, and did it last?</h1>
-      <p className={`mt-3 max-w-[46em] ${MUTED}`}>A fair, plain-language scorecard for every contractor. Evidence-based, with context: nobody is blamed for flooding or heavy rain they could not control.</p>
-      <Suspense fallback={<p className={`mt-6 ${MUTED}`}>Loading…</p>}>
+      <h1 className={H1}>Who did the work, and did it last?</h1>
+      <Suspense fallback={<div className="h-40" />}>
         <Contractors />
       </Suspense>
     </PageShell>
