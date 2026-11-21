@@ -1,13 +1,13 @@
+import { Suspense } from "react";
 import { Bricolage_Grotesque, Newsreader } from "next/font/google";
 import { connection } from "next/server";
-import { Suspense } from "react";
 import SiteHeader from "@/components/site-header";
 import {
   loadAuditFlags,
   loadContractorScores,
   loadWardSimulator,
 } from "./audit";
-import { loadWardOutlines, loadWards } from "./data";
+import { loadRoads, loadWardOutlines, loadWards } from "./data";
 import MapExperience from "./MapExperience";
 import { loadTrailIndex } from "./trail";
 
@@ -46,19 +46,22 @@ export default function MapPage() {
 async function MapBody() {
   // Read the data files per request rather than at build time.
   await connection();
-  const [wards, outlines, audit, scores, simulator, trail] = await Promise.all([
-    loadWards(),
-    loadWardOutlines(),
-    loadAuditFlags(),
-    loadContractorScores(),
-    loadWardSimulator(),
-    loadTrailIndex(),
-  ]);
+  const [wards, outlines, roads, audit, scores, simulator, trail] =
+    await Promise.all([
+      loadWards(),
+      loadWardOutlines(),
+      loadRoads(),
+      loadAuditFlags(),
+      loadContractorScores(),
+      loadWardSimulator(),
+      loadTrailIndex(),
+    ]);
 
   return (
     <MapExperience
       wards={wards}
       outlines={outlines}
+      roads={roads}
       audit={audit}
       scores={scores}
       simulator={simulator}

@@ -44,6 +44,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(HACKATHON_DIR))  # .../claude-impact
 
 DEFAULT_DATA_DIRS = [
     os.path.join(REPO_ROOT, "Claude-Impact-Labs-data-2", "data"),
+    os.path.join(TEAM41_DIR, "data"),  # data lives inside team41 since the Vercel restructure
     os.path.join(HACKATHON_DIR, "data"),
 ]
 DEFAULT_OUT_DIR = os.path.join(TEAM41_DIR, "public", "data")

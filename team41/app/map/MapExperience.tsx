@@ -26,6 +26,7 @@ type Tab = "flags" | "contractors";
 export default function MapExperience({
   wards,
   outlines,
+  roads,
   audit,
   scores,
   simulator,
@@ -33,6 +34,7 @@ export default function MapExperience({
 }: {
   wards: Ward[];
   outlines: unknown;
+  roads: unknown;
   audit: AuditFlagsData | null;
   scores: ContractorScoresData | null;
   simulator: WardSimulatorData | null;
@@ -152,6 +154,7 @@ export default function MapExperience({
           <WardMap
             wards={wards}
             outlines={outlines}
+            roads={roads}
             selectedCode={selectedCode}
             onWardSelect={setSelectedCode}
             drawerFooter={

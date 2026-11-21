@@ -14,7 +14,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 D = ROOT / "data"
-OUT = ROOT / "out"
+OUT = ROOT / "data"  # the app reads data/follow_the_rupee.json at runtime
 
 # --- rules (documented on the page) --------------------------------------------------------
 OVERBILL_RATIO = 1.35       # normal jobs vary 20-30% around the rate card; nothing sits in 1.30-1.35
@@ -52,18 +52,19 @@ def audit(x):
     wo["has_complaint"] = wo.linked_complaint_ids.notna()
 
     flags = []
-    def add(r, kind, reason, at_risk, confidence="High"):
+    def add(r, kind, reason, at_risk, confidence="High", **facts):
         flags.append(dict(work_order_id=r.work_order_id, ward_code=r.ward_code, road_id=r.road_id,
                           road_name=r.road_name, contractor_name=r.contractor_name, flag=kind,
                           confidence=confidence, reason=reason, cost_inr=int(r.cost_inr),
-                          inr_at_risk=int(round(at_risk))))
+                          inr_at_risk=int(round(at_risk)), method=r.repair_method, work_type=r.work_type, **facts))
 
     # a) over-billed vs rate card (High from 1.5x; 1.35-1.5x is Medium)
     for r in wo[wo.cost_ratio > OVERBILL_RATIO].itertuples():
         add(r, "Over-billed",
             f"Billed ₹{r.cost_inr:,.0f}, {r.cost_ratio:.1f}x the rate card (expected about ₹{r.expected_inr:,.0f} "
             f"for {r.repair_method.lower()}{f', {r.area_sqm} sqm' if r.unit == 'per sqm' else ''}).",
-            r.cost_inr - r.expected_inr, "High" if r.cost_ratio >= 1.5 else "Medium")
+            r.cost_inr - r.expected_inr, "High" if r.cost_ratio >= 1.5 else "Medium",
+            ratio=round(float(r.cost_ratio), 1), expected_inr=int(round(r.expected_inr)))
 
     # b) double billing: no complaint, same road + method + contractor as a real job a few days apart
     real = wo[wo.has_complaint]
@@ -78,7 +79,7 @@ def audit(x):
             add(r, "Possible double billing",
                 f"No complaint linked. Same road, method and contractor as {twin.work_order_id}, "
                 f"completed {gap.min():.0f} day(s) apart. Remark: “{r.engineer_remark}”.",
-                r.cost_inr)
+                r.cost_inr, twin=twin.work_order_id, gap_days=int(round(gap.min())))
 
     # c) BMC paid for a repair on a road still under the contractor's Defect Liability Period
     for r in wo[(wo.under_dlp == "Y") & (wo.cost_inr > 0)].itertuples():
@@ -86,7 +87,7 @@ def audit(x):
         add(r, "Paid during DLP",
             f"Road resurfaced {r.last_resurfaced} and still under its Defect Liability Period; "
             f"{r.work_type.lower()} ({kind}) should be fixed by the original contractor at no cost to BMC.",
-            r.cost_inr, "High" if r.work_type in SURFACE_TYPES else "Medium")
+            r.cost_inr, "High" if r.work_type in SURFACE_TYPES else "Medium", resurfaced=str(r.last_resurfaced))
 
     f = pd.DataFrame(flags)
     return wo, f
@@ -469,7 +470,13 @@ def next_rupee(x, wo, comp, flags, cx):
                     "recovered money" if running <= max(left, 0) + recoverable else "next allocation")
             items.append(dict(road_id=q.road_id, road=f"{q.road_name} (seg {q.segment_no})", risk=float(q.risk),
                               issue=q.issue_type, action=q.action, est_cost_inr=int(q.est_cost_inr),
-                              running_inr=int(running), funded_by=fund, why=q.why))
+                              running_inr=int(running), funded_by=fund, why=q.why,
+                              act="dlp" if q.under_dlp == "Y" else ("resurface" if "resurfacing" in q.action else "fix"),
+                              method=q.method, open_complaints=int(q.open_complaints), emergency=bool(q.emergency_road),
+                              accidents_pending=int(q.accidents_while_pending), flood_spot=q.near_flood_hotspot,
+                              tide_no_pump=bool(q.tide_no_pump), accidents=int(q.road_accidents),
+                              hospital=bool(q.hospital), school=bool(q.facilities != "" and not q.hospital),
+                              congestion=float(q.congestion_index_0_10 or 0), failed_before=int(q.reopen_history)))
         plans[w.ward_code] = dict(budget_left_inr=left, recoverable_inr=recoverable,
                                   plan_total_inr=int(running), items=items)
     return plans
@@ -612,7 +619,8 @@ def main():
         rules=dict(overbill_ratio=OVERBILL_RATIO, double_bill_days=DOUBLE_BILL_DAYS, heavy_rain_mm=HEAVY_RAIN_MM),
     )
     flag_rows = flags.sort_values("inr_at_risk", ascending=False)[
-        ["work_order_id", "ward_code", "road_name", "contractor_name", "flag", "confidence", "reason", "cost_inr", "inr_at_risk"]]
+        ["work_order_id", "ward_code", "road_name", "contractor_name", "flag", "confidence", "reason", "cost_inr", "inr_at_risk",
+         "method", "work_type", "ratio", "expected_inr", "twin", "gap_days", "resurfaced"]]
     summary["flag_confidence"] = flags.confidence.value_counts().to_dict()
     summary["social"] = soc_stats
     summary["spend_by_method"] = {k: int(v) for k, v in wo.groupby("repair_method").cost_inr.sum().sort_values(ascending=False).items()}
@@ -630,6 +638,10 @@ def main():
         outside_listed_wards_pct=round(float(100 * np.mean([wd not in listed[c] for wd, c in zip(wo.ward_code, wo.contractor_id)]))),
     )
     summary["files_used"] = sorted(p.name for p in D.glob("*.csv") if p.name != "complaints_sample_200.csv") + ["roads.geojson", "wards.geojson"]
+    import sys; sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from scorecard_text import SCORECARD_TEXT  # plain-language text written by Claude
+    sc["text"] = sc.contractor.map(SCORECARD_TEXT).fillna("")
+    sc["short"] = sc.contractor.str.replace(" (synthetic)", "", regex=False)
     data = dict(summary=summary, contractors=json.loads(sc.to_json(orient="records")), wards=wards,
                 flags=json.loads(flag_rows.to_json(orient="records")), W=W, C=C, heat=points, geo=geo,
                 roads_geo=road_geo, calendar=cx["calendar"], pending=pend)
