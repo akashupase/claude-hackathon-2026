@@ -1,9 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { AuditFlag, AuditFlagsData } from "../map/audit";
-import AuditFlagsPanel from "../map/AuditFlagsPanel";
-import ClawbackNoticeModal from "../map/ClawbackNoticeModal";
+import type { AuditFlagsData } from "../map/audit";
 import { FLAG_BADGES, FLAG_HELP, formatInrShort } from "../map/format";
 import { Columns, HBars, ShareBar, type Datum } from "./charts";
 
@@ -22,7 +20,6 @@ const axisCr = (v: number) => (v === 0 ? "0" : v >= 1e7 ? `${(v / 1e7).toFixed(1
 export default function WastedMoney({ audit }: { audit: AuditFlagsData }) {
   const { summary, flags } = audit;
   const [ward, setWard] = useState<string | null>(null);
-  const [notice, setNotice] = useState<AuditFlag | null>(null);
 
   const scoped = useMemo(() => (ward ? flags.filter((f) => f.ward_code === ward) : flags), [flags, ward]);
 
@@ -167,19 +164,6 @@ export default function WastedMoney({ audit }: { audit: AuditFlagsData }) {
         {contractors.length ? <HBars data={contractors} /> : <Empty />}
       </section>
 
-      {/* The bills */}
-      <section className="mt-6">
-        <div className="mb-3 flex items-baseline justify-between gap-2">
-          <h2 className="font-[family-name:var(--font-bricolage)] text-[clamp(26px,3vw,38px)] font-extrabold tracking-[-.035em]">
-            The bills
-          </h2>
-        </div>
-        <div className="flex h-[70dvh] min-h-[420px] flex-col rounded-2xl bg-[#faf3eb]">
-          <AuditFlagsPanel audit={audit} wardCode={ward} onOpenNotice={setNotice} />
-        </div>
-      </section>
-
-      {notice && <ClawbackNoticeModal flag={notice} onClose={() => setNotice(null)} />}
     </>
   );
 }
