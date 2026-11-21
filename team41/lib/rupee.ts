@@ -70,6 +70,10 @@ export type Rupee = {
     rules: { overbill_ratio: number; double_bill_days: number };
     files_used: string[];
     method_economics: Record<string, MethodEcon[]>;
+    flag_counts: Record<string, number>; flag_inr: Record<string, number>; flag_confidence: Record<string, number>;
+    cost_ratio_hist: { lo: number; hi: number | null; jobs: number }[];
+    not_flagged: { missed_deadlines: number; failed_fixes: number; normal_price_band: number; between_130_135: number };
+    connections_outside_listed_pct?: number;
   };
   contractors: Contractor[]; wards: Ward[]; flags: Flag[]; W: Record<string, WO>; C: Record<string, Complaint>;
   calendar: { date: string; height_m: number }[];
