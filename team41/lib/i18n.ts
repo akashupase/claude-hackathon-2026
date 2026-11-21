@@ -26,10 +26,11 @@ const UI = {
   home_h1: { en: "Every monsoon rupee,", hi: "मानसून का हर रुपया,", mr: "पावसाळ्यातील प्रत्येक रुपया," },
   home_h2: { en: "followed to the road.", hi: "सड़क तक ट्रैक किया।", mr: "रस्त्यापर्यंत शोधला." },
   home_blurb: {
-    en: "See where each Mumbai ward's road-repair money went, whether the fix lasted, and where the next rupee should go. Synthetic data, real questions.",
-    hi: "देखें कि मुंबई के हर वार्ड का सड़क मरम्मत का पैसा कहाँ गया, मरम्मत टिकी या नहीं, और अगला रुपया कहाँ लगे। डेटा काल्पनिक, सवाल असली।",
-    mr: "मुंबईच्या प्रत्येक वॉर्डचा रस्ते दुरुस्तीचा पैसा कुठे गेला, दुरुस्ती टिकली का, आणि पुढचा रुपया कुठे खर्च व्हावा ते पाहा. डेटा काल्पनिक, प्रश्न खरे.",
+    en: "Pick any ward and see what BMC paid for its road repairs, who did the work, and whether the fix held up through the rains. Sample data, not official BMC records.",
+    hi: "कोई भी वार्ड चुनें और देखें कि BMC ने उसकी सड़क मरम्मत पर कितना पैसा दिया, काम किसने किया, और मरम्मत बारिश में टिकी या नहीं। यह नमूना डेटा है, BMC का आधिकारिक रिकॉर्ड नहीं।",
+    mr: "कोणताही वॉर्ड निवडा आणि पाहा की BMC ने त्याच्या रस्ते दुरुस्तीसाठी किती पैसे दिले, काम कोणी केले, आणि दुरुस्ती पावसात टिकली का. हा नमुना डेटा आहे, BMC ची अधिकृत नोंद नाही.",
   },
+
   stat_wards: { en: "wards", hi: "वार्ड", mr: "वॉर्ड" },
   stat_jobs: { en: "repair jobs", hi: "मरम्मत काम", mr: "दुरुस्ती कामे" },
   stat_complaints: { en: "complaints", hi: "शिकायतें", mr: "तक्रारी" },
@@ -52,7 +53,8 @@ const UI = {
 
   // menu
   nav_wards: { en: "Wards", hi: "वार्ड", mr: "वॉर्ड" },
-  nav_audit: { en: "Audit", hi: "ऑडिट", mr: "ऑडिट" },
+  nav_audit: { en: "Wasted money", hi: "बर्बाद पैसा", mr: "वाया गेलेला पैसा" },
+  nav_heat: { en: "Heatmap", hi: "हीटमैप", mr: "हीटमॅप" },
   nav_plan: { en: "Next rupee", hi: "अगला रुपया", mr: "पुढचा रुपया" },
   nav_people: { en: "People", hi: "लोग", mr: "लोक" },
   nav_flood: { en: "Flood watch", hi: "बाढ़ निगरानी", mr: "पूर निरीक्षण" },

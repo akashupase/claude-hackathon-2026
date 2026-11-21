@@ -187,6 +187,7 @@ export default function WardMap({
 
     let map: import("leaflet").Map | undefined;
     let cancelled = false;
+    let resizeObs: ResizeObserver | undefined;
 
     // Leaflet reads `window` on import, so load it only in the browser.
     import("leaflet").then((L) => {
@@ -194,7 +195,7 @@ export default function WardMap({
 
       leafletRef.current = L;
       const byCode = new Map(wards.map((w) => [w.ward_code, w]));
-      const theMap = L.map(el, { scrollWheelZoom: true }).setView([19.07, 72.88], 11);
+      const theMap = L.map(el, { scrollWheelZoom: true, zoomSnap: 0.25 }).setView([19.07, 72.88], 11);
       map = theMap;
 
       L.tileLayer(
@@ -231,7 +232,15 @@ export default function WardMap({
         polys.forEach((poly, code) => poly.setStyle(styleFor(code)));
       restyleAll.current();
 
-      map.fitBounds(layer.getBounds(), { padding: [16, 16] });
+      map.fitBounds(layer.getBounds(), { paddingTopLeft: [16, 60], paddingBottomRight: [16, 16] });
+
+      // The flex layout can settle after init: re-fit while nothing is selected.
+      const cityBounds = layer.getBounds();
+      resizeObs = new ResizeObserver(() => {
+        theMap.invalidateSize();
+        if (!activeCode.current) theMap.fitBounds(cityBounds, { paddingTopLeft: [16, 60], paddingBottomRight: [16, 16] });
+      });
+      resizeObs.observe(el);
 
       // Roads sit in their own pane above the ward fills.
       theMap.createPane("roads").style.zIndex = "450";
@@ -267,6 +276,7 @@ export default function WardMap({
       mapRef.current = null;
       leafletRef.current = null;
       userLayer.current = null;
+      resizeObs?.disconnect();
       map?.remove();
     };
   }, [wards, outlines, roads, select]);

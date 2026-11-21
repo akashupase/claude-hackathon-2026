@@ -70,7 +70,7 @@ export default function ContractorLeaderboard({
     <section className="flex min-h-0 flex-1 flex-col" aria-label="Contractor leaderboard">
       <div className="flex-none px-1">
         <div className="flex items-baseline justify-between gap-2">
-          <h2 className="font-[family-name:var(--font-bricolage)] text-[15px] font-semibold tracking-[-.01em]">
+          <h2 className="font-[family-name:var(--font-bricolage)] text-[18px] font-extrabold tracking-[-.025em]">
             Contractor leaderboard
           </h2>
           <span className="text-[12px] text-[#4a4f52]">audit simulation</span>
@@ -207,7 +207,7 @@ function LeaderRow({
       >
         <div className="flex items-center gap-2.5">
           <span
-            className={`grid size-8 flex-none place-items-center rounded-lg font-[family-name:var(--font-bricolage)] text-[15px] font-semibold tabular-nums transition-colors duration-500 ${
+            className={`grid size-8 flex-none place-items-center rounded-lg font-[family-name:var(--font-bricolage)] text-[15px] font-extrabold tabular-nums transition-colors duration-500 ${
               rank === 1 ? "bg-[#ee7454] text-white" : "bg-[#f4ede4] text-[#2b3033]"
             }`}
           >
@@ -215,7 +215,7 @@ function LeaderRow({
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
-              <span className="truncate text-[14px] font-medium">
+              <span className="truncate text-[14px] font-bold">
                 {c.contractor_name.replace(" (synthetic)", "")}
               </span>
               {fair && (
@@ -262,7 +262,7 @@ function LeaderRow({
             </div>
           </div>
           <span className="flex-none pl-2 text-right">
-            <span className="font-[family-name:var(--font-bricolage)] text-[17px] font-semibold tabular-nums">
+            <span className="font-[family-name:var(--font-bricolage)] text-[22px] font-extrabold tabular-nums tracking-[-.03em]">
               {score.toFixed(1)}
             </span>
             {fair && (

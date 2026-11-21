@@ -48,7 +48,7 @@ export type Contractor = {
   median_cost_ratio: number; cold_mix_share_pct: number; heavy_rain_share_pct: number; low_lying_share_pct: number;
   evidence: string[]; flags: Record<string, number>; grade: "A" | "B" | "C" | "D";
   durability_vs_expected_pp: number; speed_vs_expected_pp: number; text: string;
-  empanelled_since: number; listed_wards: string[]; outside_listed_pct: number;
+  empanelled_since: number; listed_wards: string[]; outside_listed_pct: number; inr_flagged?: number;
 };
 // W: work order -> [ward, road, method, contractor, cost, completed, sla_met, reopened, flags,
 //                   first complaint, assigned, started, completed_at, photo, sla_hours, remark]
@@ -80,6 +80,10 @@ export function loadRupee(): Promise<Rupee> {
   cache ??= getFeed<Rupee>("follow_the_rupee").then((feed) => {
     if (!feed) throw new Error("The follow_the_rupee feed is missing from Postgres — run `npm run db:seed` first.");
     return feed;
+  });
+  // Don't memoise a failure (e.g. DB not seeded yet) — retry on the next request.
+  cache.catch(() => {
+    cache = null;
   });
   return cache;
 }
