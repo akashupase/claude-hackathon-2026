@@ -1,9 +1,10 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import { cache } from "react";
+import { getFeed } from "@/lib/db";
 
 // ---------------------------------------------------------------------------
-// Types mirroring public/data/trail_index.json, produced by
-// scripts/build_trail_data.py. Shared by the /map server page and client UI.
+// Types mirroring the trail_index feed, produced by scripts/build_trail_data.py
+// and stored in the json_feeds table in Neon Postgres. Shared by the /map
+// server page and client UI.
 // ---------------------------------------------------------------------------
 
 export type TrailWorkOrder = {
@@ -79,15 +80,5 @@ export type TrailIndexData = {
   complaints: TrailRecord[];
 };
 
-// ---------------------------------------------------------------------------
-
-const TRAIL_PATH = path.join(process.cwd(), "public", "data", "trail_index.json");
-
-export async function loadTrailIndex(): Promise<TrailIndexData | null> {
-  try {
-    const text = await readFile(TRAIL_PATH, "utf8");
-    return JSON.parse(text) as TrailIndexData;
-  } catch {
-    return null;
-  }
-}
+export const loadTrailIndex = cache(async (): Promise<TrailIndexData | null> =>
+  getFeed<TrailIndexData>("trail_index"));

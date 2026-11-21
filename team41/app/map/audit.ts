@@ -1,9 +1,10 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import { cache } from "react";
+import { getFeed } from "@/lib/db";
 
 // ---------------------------------------------------------------------------
 // Types shared by the /map server page and its client components. These mirror
-// public/data/*.json produced by scripts/build_audit_data.py.
+// the json_feeds payloads in Postgres, seeded from public/data/*.json by
+// scripts/seed-neon.ts (originally produced by scripts/build_audit_data.py).
 // ---------------------------------------------------------------------------
 
 export type FlagReason = "DLP_VIOLATION" | "OVERBILLED" | "DOUBLE_BILLED";
@@ -180,30 +181,16 @@ export type WardSimulatorData = {
 };
 
 // ---------------------------------------------------------------------------
-// Server-side loaders. Files live in public/data and are re-read per request
-// so a fresh `python scripts/build_audit_data.py` shows up on refresh.
+// Server-side loaders. Feeds come from the json_feeds table in Neon Postgres;
+// cache() dedupes queries within a single request render, and a missing feed
+// still yields null so the UI renders its empty state.
 // ---------------------------------------------------------------------------
 
-const AUDIT_DIR = path.join(process.cwd(), "public", "data");
+export const loadAuditFlags = cache(async (): Promise<AuditFlagsData | null> =>
+  getFeed<AuditFlagsData>("audit_flags"));
 
-async function readAuditJson<T>(name: string): Promise<T | null> {
-  try {
-    const text = await readFile(path.join(AUDIT_DIR, name), "utf8");
-    return JSON.parse(text) as T;
-  } catch {
-    // Feeds haven't been generated yet — the UI renders its empty state.
-    return null;
-  }
-}
+export const loadContractorScores = cache(async (): Promise<ContractorScoresData | null> =>
+  getFeed<ContractorScoresData>("contractor_scores"));
 
-export function loadAuditFlags(): Promise<AuditFlagsData | null> {
-  return readAuditJson<AuditFlagsData>("audit_flags.json");
-}
-
-export function loadContractorScores(): Promise<ContractorScoresData | null> {
-  return readAuditJson<ContractorScoresData>("contractor_scores.json");
-}
-
-export function loadWardSimulator(): Promise<WardSimulatorData | null> {
-  return readAuditJson<WardSimulatorData>("ward_simulator.json");
-}
+export const loadWardSimulator = cache(async (): Promise<WardSimulatorData | null> =>
+  getFeed<WardSimulatorData>("ward_simulator"));

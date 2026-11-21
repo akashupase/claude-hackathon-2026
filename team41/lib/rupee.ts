@@ -1,9 +1,8 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import { getFeed } from "./db";
 
-// Output of analysis/follow_rupee.py (audit, fair scorecards, trail, next-rupee plan, social, connections).
-// Rebuild with: python analysis/follow_rupee.py   (from team41/)
-const FILE = path.join(process.cwd(), "data", "follow_the_rupee.json");
+// Output of analysis/follow_rupee.py (audit, fair scorecards, trail, next-rupee plan, social, connections),
+// stored in the json_feeds table by scripts/seed-neon.ts.
+// Rebuild + reseed with: python analysis/follow_rupee.py && npm run db:seed   (from team41/)
 
 export type Flag = {
   work_order_id: string; ward_code: string; road_name: string; contractor_name: string;
@@ -78,7 +77,10 @@ export type Rupee = {
 
 let cache: Promise<Rupee> | null = null;
 export function loadRupee(): Promise<Rupee> {
-  cache ??= readFile(FILE, "utf8").then((t) => JSON.parse(t) as Rupee);
+  cache ??= getFeed<Rupee>("follow_the_rupee").then((feed) => {
+    if (!feed) throw new Error("The follow_the_rupee feed is missing from Postgres — run `npm run db:seed` first.");
+    return feed;
+  });
   return cache;
 }
 

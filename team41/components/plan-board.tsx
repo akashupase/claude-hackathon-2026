@@ -40,8 +40,15 @@ export default function PlanBoard({ items, left, recoverable }: { items: PlanIte
   const [budget, setBudget] = useState(base + recoverable);
 
   // which items fit in the chosen budget, in priority order; ₹0 warranty items always count as funded
-  let run = 0;
-  const funded = items.map((i) => { if (!i.est_cost_inr) return true; run += i.est_cost_inr; return run <= budget; });
+  const { funded } = items.reduce(
+    (acc, i) => {
+      if (!i.est_cost_inr) { acc.funded.push(true); return acc; }
+      acc.run += i.est_cost_inr;
+      acc.funded.push(acc.run <= budget);
+      return acc;
+    },
+    { run: 0, funded: [] as boolean[] },
+  );
   const fundedCount = funded.filter(Boolean).length;
   const cutAt = funded.findIndex((f, k) => !f && items[k].est_cost_inr > 0);
   const spentInPlan = items.filter((_, k) => funded[k]).reduce((s, i) => s + i.est_cost_inr, 0);
