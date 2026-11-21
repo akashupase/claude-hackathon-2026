@@ -2,8 +2,10 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
-import PageShell, { CARD, H1, LABEL, MUTED, Stat } from "@/components/page-shell";
+import PageShell, { LABEL, MUTED, Stat } from "@/components/page-shell";
 import { logout } from "./actions";
+import AdminWorkspace, { type AdminData } from "@/components/admin/workspace";
+import AIPanel from "@/components/admin/ai-panel";
 import { getUser } from "@/lib/auth";
 import { inr, fmt, loadRupee, wardSlug } from "@/lib/rupee";
 
@@ -26,16 +28,36 @@ async function Dashboard({ searchParams }: { searchParams: Promise<Record<string
   const open = w ? w.complaints_open_not_fixed : D.summary.complaints.open_not_fixed;
   const pending = w ? w.pending_accidents.length : D.summary.connections.accidents_while_pending;
 
+  // Data for the editable workspace (contracts + complaints), scoped to the officer's ward if they have one.
+  const roadSet = new Map<string, { ward: string; name: string }>();
+  for (const x of Object.values(D.W)) roadSet.set(`${x[0]}|${x[1]}`, { ward: x[0], name: x[1] });
+  const workspace: AdminData = {
+    wards: D.wards.map((x) => ({ code: x.ward_code, name: x.ward_name })),
+    contractors: D.contractors.map((c) => c.short),
+    roads: [...roadSet.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    workTypes: ["Pothole", "Waterlogging", "Open or broken manhole", "Choked drain / nullah overflow", "Road cave-in", "Broken paver blocks"],
+    complaints: Object.entries(D.C)
+      .filter(([, c]) => !c[6] && (c[4] === "Open" || c[4] === "In Progress"))
+      .map(([id, c]) => ({ id, ward: c[0], date: c[1], issue: c[2], text: c[5], status: c[4] }))
+      .sort((a, b) => b.date.localeCompare(a.date)),
+    lockedWard: user.role === "ward_officer" ? user.ward : code || undefined,
+  };
+
   return (
     <>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className={LABEL}>{user.role === "ward_officer" ? "Ward officer" : "BMC admin"} · signed in as {user.username}</div>
-          <h1 className={`${H1} mt-2`}>{w ? `Ward ${w.ward_code} · ${w.ward_name}` : "All 24 wards"}</h1>
-          <p className={`mt-2 ${MUTED}`}>{user.name}</p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className={LABEL}>
+            {user.role === "ward_officer" ? "Ward officer" : "BMC admin"} · signed in as {user.username}
+            {w ? ` · Ward ${w.ward_code}` : ""}
+          </div>
+          <h1 className="mt-2 font-[family-name:var(--font-bricolage)] text-[clamp(26px,3.2vw,40px)] font-semibold leading-[1.05] tracking-[-.03em] [overflow-wrap:anywhere]">
+            {w ? w.ward_name : "All 24 wards"}
+          </h1>
+          <p className={`mt-1 ${MUTED}`}>{user.name}</p>
         </div>
-        <form action={logout}>
-          <button className="rounded-full px-5 py-2 font-[family-name:var(--font-bricolage)] font-semibold shadow-[0_0_0_1px_rgba(43,48,51,.2)] hover:text-[#ee7454]">Log out</button>
+        <form action={logout} className="flex-none">
+          <button className="whitespace-nowrap rounded-full px-5 py-2 font-[family-name:var(--font-bricolage)] font-semibold shadow-[0_0_0_1px_rgba(43,48,51,.2)] hover:text-[#ee7454]">Log out</button>
         </form>
       </div>
 
@@ -58,10 +80,8 @@ async function Dashboard({ searchParams }: { searchParams: Promise<Record<string
         <Stat value={fmt(pending)} label="accidents while a repair waited" bad={pending > 0} />
       </div>
 
-      <div className={`${CARD} mt-6`}>
-        <p className={MUTED}>Dashboard tools go here next.</p>
-        {w && <Link className="mt-2 inline-block underline hover:text-[#ee7454]" href={`/ward/${wardSlug(w.ward_code)}`}>Open the public ward report →</Link>}
-      </div>
+      <AdminWorkspace data={workspace} />
+      <AIPanel ward={w?.ward_code} scopeLabel={w ? `Ward ${w.ward_code} · ${w.ward_name}` : "All 24 wards"} />
     </>
   );
 }
