@@ -16,8 +16,8 @@ export type Ward = {
   monsoon_repair_budget_inr_2025: number;
 };
 
-// Data lives in the repo-level /data folder (one level above team41).
-const DATA_DIR = path.join(process.cwd(), "..", "data");
+// Data lives in team41/data (deployed with the app).
+const DATA_DIR = path.join(process.cwd(), "data");
 
 // Minimal RFC 4180 CSV parser: handles quoted fields with commas and "" escapes.
 function parseCsv(text: string): string[][] {

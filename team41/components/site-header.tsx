@@ -1,4 +1,11 @@
+"use client";
+
+import { Suspense } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import LangSwitcher from "@/components/lang-switcher";
+import { tr, type Key } from "@/lib/i18n";
+import { useLang } from "@/lib/lang-client";
 
 // Shared top bar, styled to match the landing hero (components/ui/sketch-city-hero.tsx).
 function Mark() {
@@ -25,51 +32,73 @@ function Mark() {
   );
 }
 
-export default function SiteHeader({ current }: { current?: "map" | "contractors" | "track" | "ward" }) {
-  const link =
-    "flex h-10 items-center rounded-lg px-1 text-[15px] font-medium hover:text-[#ee7454] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ee7454]";
+// Top menu: one page per element. Add new pages here.
+export const MENU: { href: string; key: Key; match: (p: string) => boolean }[] = [
+  { href: "/", key: "nav_home", match: (p) => p === "/" },
+  { href: "/map", key: "nav_map", match: (p) => p.startsWith("/map") },
+  { href: "/wards", key: "nav_wards", match: (p) => p.startsWith("/ward") },
+  { href: "/audit", key: "nav_audit", match: (p) => p.startsWith("/audit") },
+  { href: "/plan", key: "nav_plan", match: (p) => p.startsWith("/plan") },
+  { href: "/contractors", key: "nav_contractors", match: (p) => p.startsWith("/contractors") },
+  { href: "/people", key: "nav_people", match: (p) => p.startsWith("/people") },
+  { href: "/flood", key: "nav_flood", match: (p) => p.startsWith("/flood") },
+  { href: "/track", key: "nav_track", match: (p) => p.startsWith("/track") },
+];
+
+function NavList({ path, T }: { path: string | null; T: (k: Key) => string }) {
   return (
-    <header className="relative z-20 flex h-16 flex-none items-center gap-4 bg-white px-5 shadow-[0_1px_0_rgba(43,48,51,.14),0_8px_18px_-14px_rgba(0,0,0,.28)] sm:h-20 sm:px-[max(20px,6%)]">
-      <Link
-        href="/"
-        className="flex items-center gap-[9px] font-[family-name:var(--font-newsreader)] text-[22px] leading-none tracking-[-.01em] text-[#2b3033] sm:text-[25px]"
-        aria-label="Follow the Rupee, home"
-      >
-        <Mark />
-        <span>Follow the Rupee</span>
-      </Link>
-      <nav
-        className="ml-auto flex items-center font-[family-name:var(--font-bricolage)] text-[#2b3033] sm:ml-[clamp(28px,6%,76px)] sm:mr-auto"
-        aria-label="Main"
-      >
-        <Link href="/" className={link}>
-          Home
-        </Link>
-        <span
-          className="mx-4 h-7 border-l-2 border-dotted border-[rgba(43,48,51,.14)] sm:mx-[26px]"
-          aria-hidden="true"
-        />
+    <ul className="flex gap-1 overflow-x-auto py-1.5 font-[family-name:var(--font-bricolage)] [scrollbar-width:none]">
+      {MENU.map((m) => {
+        const on = path !== null && m.match(path);
+        return (
+          <li key={m.href} className="flex-none">
+            <Link
+              href={m.href}
+              aria-current={on ? "page" : undefined}
+              className={`block whitespace-nowrap rounded-full px-3.5 py-1.5 text-[15px] font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ee7454] ${
+                on ? "bg-[#ee7454] text-white" : "text-[#2b3033] hover:bg-[rgba(238,116,84,.12)] hover:text-[#c2410c]"
+              }`}
+            >
+              {T(m.key)}
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+// usePathname() is request data in Next 16, so it lives in its own Suspense boundary.
+function ActiveNav({ T }: { T: (k: Key) => string }) {
+  return <NavList path={usePathname() ?? "/"} T={T} />;
+}
+
+// `current` is kept so existing pages compile; the active item comes from the URL.
+export default function SiteHeader({}: { current?: string }) {
+  const lang = useLang();
+  const T = tr(lang);
+  return (
+    <header className="relative z-20 flex-none bg-white shadow-[0_1px_0_rgba(43,48,51,.14),0_8px_18px_-14px_rgba(0,0,0,.28)]">
+      <div className="flex h-14 items-center gap-4 px-5 sm:h-16 sm:px-[max(20px,6%)]">
         <Link
-          href="/map"
-          className={link + (current === "map" ? " text-[#ee7454]" : "")}
-          aria-current={current === "map" ? "page" : undefined}
+          href="/"
+          className="flex items-center gap-[9px] font-[family-name:var(--font-newsreader)] text-[21px] leading-none tracking-[-.01em] text-[#2b3033] sm:text-[24px]"
+          aria-label={T("brand")}
         >
-          Ward map
+          <Mark />
+          <span>{T("brand")}</span>
         </Link>
-        <Link
-          href="/contractors"
-          className={link + " ml-4 sm:ml-[26px]" + (current === "contractors" ? " text-[#ee7454]" : "")}
-          aria-current={current === "contractors" ? "page" : undefined}
-        >
-          Contractors
-        </Link>
-        <Link
-          href="/track"
-          className={link + " ml-4 sm:ml-[26px]" + (current === "track" ? " text-[#ee7454]" : "")}
-          aria-current={current === "track" ? "page" : undefined}
-        >
-          Track a complaint
-        </Link>
+        <div className="ml-auto flex items-center gap-3">
+          <Link href="/admin" className="hidden rounded-full px-3 py-1.5 font-[family-name:var(--font-bricolage)] text-sm font-semibold text-[#2b3033] shadow-[0_0_0_1px_rgba(43,48,51,.18)] hover:text-[#ee7454] sm:block">
+            Officer login
+          </Link>
+          <LangSwitcher lang={lang} />
+        </div>
+      </div>
+      <nav aria-label={T("menu")} className="border-t border-[rgba(43,48,51,.08)] px-3 sm:px-[max(12px,calc(6%-8px))]">
+        <Suspense fallback={<NavList path={null} T={T} />}>
+          <ActiveNav T={T} />
+        </Suspense>
       </nav>
     </header>
   );
