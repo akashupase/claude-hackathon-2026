@@ -126,8 +126,7 @@ export function PlanWardMap({ wards, outlines, roads, selected }: { wards: MapWa
       outlines={outlines}
       roads={roads}
       selectedCode={selected}
-      onWardSelect={(code) => { if (code) router.push(`/plan?ward=${code.replace("/", "-")}`, { scroll: false }); }}
-      drawerFooter={<p className="mt-3 text-sm text-[#4a4f52]">This ward&apos;s plan is below the map.</p>}
+      onWardSelect={(code) => router.push(`/plan?ward=${code.replace("/", "-")}`, { scroll: false })}
     />
   );
 }
