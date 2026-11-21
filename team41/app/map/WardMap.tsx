@@ -338,6 +338,12 @@ export default function WardMap({
           <p className="mt-2 text-sm text-[#4a4f52]">
             {selected.assistant_commissioner_office}
           </p>
+          <a
+            href={`/ward/${selected.ward_code.replace("/", "-")}`}
+            className="mt-4 inline-flex h-10 items-center rounded-full bg-[#ee7454] px-5 font-[family-name:var(--font-bricolage)] text-sm font-semibold text-white hover:bg-[#e0603f]"
+          >
+            Open ward report →
+          </a>
         </aside>
       )}
     </div>

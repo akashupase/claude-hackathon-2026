@@ -191,7 +191,9 @@
     "N",
     "T"
    ],
-   "outside_listed_pct": 82.0
+   "outside_listed_pct": 82.0,
+   "text": "The largest contractor by money billed. Its speed and durability are close to what is expected for its mix of jobs (46% of deadlines met, 27% of fixes failed). To improve: a few over-billed and repeat jobs, and slightly more fixes failing than expected.",
+   "short": "Konkan Roadcon Pvt Ltd"
   },
   {
    "contractor": "Arabian Sea Engineering (synthetic)",
@@ -254,7 +256,9 @@
     "H/E",
     "N"
    ],
-   "outside_listed_pct": 85.0
+   "outside_listed_pct": 85.0,
+   "text": "Slower than expected (44% of deadlines met, 53% expected) and less durable (32% of fixes failed, 25% expected). 38 jobs were billed at more than 1.35 times the rate card. To improve: billing accuracy first, then repair quality.",
+   "short": "Arabian Sea Engineering"
   },
   {
    "contractor": "Western Coast Asphalt Co (synthetic)",
@@ -317,7 +321,9 @@
     "F/N",
     "M/E"
    ],
-   "outside_listed_pct": 82.0
+   "outside_listed_pct": 82.0,
+   "text": "Prices are mostly fair, but its repairs do not last: 39% failed within 30 days, against 25% expected for the same methods, wards and rain. That means the city paid twice for many roads. To improve: durability, starting with the roads where its patches failed more than once.",
+   "short": "Western Coast Asphalt Co"
   },
   {
    "contractor": "Sahyadri Infra Works (synthetic)",
@@ -384,7 +390,9 @@
     "P/N",
     "R/N"
    ],
-   "outside_listed_pct": 69.0
+   "outside_listed_pct": 69.0,
+   "text": "Fast and long-lasting. It met 62% of deadlines (50% expected) and only 14% of its fixes failed within 30 days (25% expected). Prices are close to the rate card. To improve: 8 jobs were billed a few days after an identical job on the same road with no complaint linked; these need paperwork showing they were separate work.",
+   "short": "Sahyadri Infra Works"
   },
   {
    "contractor": "Mithi Infra Projects (synthetic)",
@@ -449,7 +457,9 @@
     "P/N",
     "R/N"
    ],
-   "outside_listed_pct": 82.0
+   "outside_listed_pct": 82.0,
+   "text": "Repairs hold up well: 12% failed within a month, about half the expected rate. Deadlines are about average. To improve: 10 jobs were billed at more than 1.35 times the rate card and should be checked against measurements on site.",
+   "short": "Mithi Infra Projects"
   },
   {
    "contractor": "Mahalaxmi Civil Contractors (synthetic)",
@@ -516,7 +526,9 @@
     "M/E",
     "P/N"
    ],
-   "outside_listed_pct": 73.0
+   "outside_listed_pct": 73.0,
+   "text": "The weakest record on this data. It met 39% of deadlines (52% expected), 38% of its fixes failed within a month (25% expected), and 44 jobs were billed well above the rate card, plus 10 possible repeat bills. To improve: every flagged job should be checked before further payments.",
+   "short": "Mahalaxmi Civil Contractors"
   },
   {
    "contractor": "Shivneri Construction (synthetic)",
@@ -580,7 +592,9 @@
     "K/E",
     "P/N"
    ],
-   "outside_listed_pct": 83.0
+   "outside_listed_pct": 83.0,
+   "text": "Average on both speed and durability for the work it was given. To improve: 8 jobs look like repeat billing (same road, same method, a few days apart, no complaint), which is a high share for its size.",
+   "short": "Shivneri Construction"
   },
   {
    "contractor": "Deccan Paving Solutions (synthetic)",
@@ -645,7 +659,9 @@
     "K/W",
     "R/S"
    ],
-   "outside_listed_pct": 80.0
+   "outside_listed_pct": 80.0,
+   "text": "The most durable work in the city: only 9% of its repairs broke again within a month, against about 24% expected for the same kind of jobs. It met its deadline on 60% of jobs, better than the 49% expected, and its prices sit right on the rate card. To improve: explain the 5 repeat jobs billed with no complaint behind them.",
+   "short": "Deccan Paving Solutions"
   }
  ],
  "wards": [
@@ -731,8 +747,8 @@
    "flagged_inr": 523680,
    "flag_counts": {
     "Paid during DLP": 9,
-    "Over-billed": 1,
-    "Possible double billing": 1
+    "Possible double billing": 1,
+    "Over-billed": 1
    },
    "complaints": 69,
    "complaints_open_not_fixed": 8,
@@ -1306,8 +1322,8 @@
    "flagged_inr": 564236,
    "flag_counts": {
     "Paid during DLP": 11,
-    "Over-billed": 1,
-    "Possible double billing": 1
+    "Possible double billing": 1,
+    "Over-billed": 1
    },
    "complaints": 88,
    "complaints_open_not_fixed": 7,
@@ -3550,8 +3566,8 @@
    "flagged_inr": 2283487,
    "flag_counts": {
     "Paid during DLP": 29,
-    "Over-billed": 1,
-    "Possible double billing": 1
+    "Possible double billing": 1,
+    "Over-billed": 1
    },
    "complaints": 167,
    "complaints_open_not_fixed": 12,

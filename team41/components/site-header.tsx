@@ -25,7 +25,7 @@ function Mark() {
   );
 }
 
-export default function SiteHeader({ current }: { current?: "map" }) {
+export default function SiteHeader({ current }: { current?: "map" | "contractors" | "track" | "ward" }) {
   const link =
     "flex h-10 items-center rounded-lg px-1 text-[15px] font-medium hover:text-[#ee7454] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ee7454]";
   return (
@@ -55,6 +55,20 @@ export default function SiteHeader({ current }: { current?: "map" }) {
           aria-current={current === "map" ? "page" : undefined}
         >
           Ward map
+        </Link>
+        <Link
+          href="/contractors"
+          className={link + " ml-4 sm:ml-[26px]" + (current === "contractors" ? " text-[#ee7454]" : "")}
+          aria-current={current === "contractors" ? "page" : undefined}
+        >
+          Contractors
+        </Link>
+        <Link
+          href="/track"
+          className={link + " ml-4 sm:ml-[26px]" + (current === "track" ? " text-[#ee7454]" : "")}
+          aria-current={current === "track" ? "page" : undefined}
+        >
+          Track a complaint
         </Link>
       </nav>
     </header>

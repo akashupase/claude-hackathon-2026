@@ -630,6 +630,10 @@ def main():
         outside_listed_wards_pct=round(float(100 * np.mean([wd not in listed[c] for wd, c in zip(wo.ward_code, wo.contractor_id)]))),
     )
     summary["files_used"] = sorted(p.name for p in D.glob("*.csv") if p.name != "complaints_sample_200.csv") + ["roads.geojson", "wards.geojson"]
+    import sys; sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from scorecard_text import SCORECARD_TEXT  # plain-language text written by Claude
+    sc["text"] = sc.contractor.map(SCORECARD_TEXT).fillna("")
+    sc["short"] = sc.contractor.str.replace(" (synthetic)", "", regex=False)
     data = dict(summary=summary, contractors=json.loads(sc.to_json(orient="records")), wards=wards,
                 flags=json.loads(flag_rows.to_json(orient="records")), W=W, C=C, heat=points, geo=geo,
                 roads_geo=road_geo, calendar=cx["calendar"], pending=pend)

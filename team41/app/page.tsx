@@ -9,9 +9,11 @@ const STATS = [
 
 const MENU = [
   { label: "Ward map", href: "/map" },
-  { label: "Kurla", href: "/map" },
-  { label: "Dharavi", href: "/map" },
-  { label: "Colaba", href: "/map" },
+  { label: "Kurla (L)", href: "/ward/L" },
+  { label: "Dharavi (G/N)", href: "/ward/G-N" },
+  { label: "Colaba (A)", href: "/ward/A" },
+  { label: "Contractors", href: "/contractors" },
+  { label: "Track a complaint", href: "/track" },
 ];
 
 export default function Home() {
