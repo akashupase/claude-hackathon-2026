@@ -39,8 +39,6 @@ export const MENU: { href: string; key: Key; match: (p: string) => boolean }[] =
   { href: "/audit", key: "nav_audit", match: (p) => p.startsWith("/audit") },
   { href: "/plan", key: "nav_plan", match: (p) => p.startsWith("/plan") },
   { href: "/contractors", key: "nav_contractors", match: (p) => p.startsWith("/contractors") },
-  { href: "/people", key: "nav_people", match: (p) => p.startsWith("/people") },
-  { href: "/flood", key: "nav_flood", match: (p) => p.startsWith("/flood") },
   { href: "/track", key: "nav_track", match: (p) => p.startsWith("/track") },
 ];
 

@@ -7,124 +7,104 @@ import WardMap from "@/app/map/WardMap";
 import type { Ward as MapWard } from "@/app/map/data";
 import type { PlanItem } from "@/lib/rupee";
 
-// Next rupee for one ward: money bar, budget slider (what-if) and the ranked list with a funding cut-off.
+// Next rupee for one ward: one answer, one money + budget card, the top 3 roads (rest on demand).
 
 const B = "font-[family-name:var(--font-bricolage)]";
 const CARD = "rounded-2xl bg-white shadow-[0_0_0_1px_rgba(43,48,51,.12),0_18px_40px_-26px_rgba(0,0,0,.35)]";
 const inr = (n: number) => (Math.abs(n) >= 1e7 ? `₹${(n / 1e7).toFixed(2)} cr` : Math.abs(n) >= 1e5 ? `₹${(n / 1e5).toFixed(1)} lakh` : `₹${Math.round(n).toLocaleString("en-IN")}`);
 
-function actionLabel(i: PlanItem) {
-  if (i.act === "dlp") return { text: "Send back to original contractor (under warranty)", tone: "bg-[#e0f2fe] text-[#075985]", icon: "↩" };
-  if (i.act === "resurface") return { text: `Patch now (${i.method.toLowerCase()}), then resurface: failed ${i.failed_before}× before`, tone: "bg-[#fef3c7] text-[#92400e]", icon: "▤" };
-  return { text: `Fix with ${i.method.toLowerCase()}`, tone: "bg-[rgba(43,48,51,.07)] text-[#2b3033]", icon: "🛠" };
+function action(i: PlanItem) {
+  if (i.act === "dlp") return "Send back to the original contractor: still under warranty, ₹0";
+  if (i.act === "resurface") return `Patch now, then resurface: fixed ${i.failed_before}× before and it kept failing`;
+  return `Fix with ${i.method.toLowerCase()}`;
 }
 
-function reasons(i: PlanItem): { t: string; strong?: boolean }[] {
-  const r: { t: string; strong?: boolean }[] = [];
-  if (i.emergency) r.push({ t: "🚑 Ambulance road ×2", strong: true });
-  if (i.accidents_pending) r.push({ t: `⚠ Accident while waiting ×1.5`, strong: true });
-  r.push({ t: `${i.open_complaints} open complaint${i.open_complaints === 1 ? "" : "s"}` });
-  if (i.flood_spot) r.push({ t: `🌊 ${i.flood_spot}${i.tide_no_pump ? " (tide, no pump)" : ""}` });
-  if (i.failed_before) r.push({ t: `↺ Failed ${i.failed_before}×` });
-  if (i.accidents) r.push({ t: `${i.accidents} road accident${i.accidents === 1 ? "" : "s"}` });
-  if (i.school) r.push({ t: "🏫 School road" });
-  if (i.hospital && !i.emergency) r.push({ t: "🏥 Hospital road" });
-  if (i.congestion >= 7) r.push({ t: `🚦 Traffic ${Math.round(i.congestion)}/10` });
-  return r;
+// The one or two reasons that matter most, in plain words.
+function why(i: PlanItem): string {
+  const r: string[] = [];
+  if (i.emergency) r.push("ambulance route to an emergency hospital");
+  if (i.accidents_pending) r.push("an accident happened while the complaint waited");
+  if (r.length < 2 && i.flood_spot) r.push(`next to the ${i.flood_spot} flood spot`);
+  if (r.length < 2 && i.failed_before >= 3) r.push(`failed ${i.failed_before}× before`);
+  if (r.length < 2 && i.school) r.push("main road to a school");
+  if (r.length < 2) r.push(`${i.open_complaints} open complaint${i.open_complaints === 1 ? "" : "s"}`);
+  return r.slice(0, 2).join(" · ");
 }
 
-export default function PlanBoard({ items, left, recoverable }: { items: PlanItem[]; left: number; recoverable: number }) {
+export default function PlanBoard({ ward, items, left, recoverable }: { ward: string; items: PlanItem[]; left: number; recoverable: number }) {
   const planCost = items.reduce((s, i) => s + i.est_cost_inr, 0);
   const base = Math.max(left, 0);
   const max = Math.max(planCost, base + recoverable, 1);
   const [budget, setBudget] = useState(base + recoverable);
+  const [all, setAll] = useState(false);
 
-  // which items fit in the chosen budget, in priority order; ₹0 warranty items always count as funded
   let run = 0;
   const funded = items.map((i) => { if (!i.est_cost_inr) return true; run += i.est_cost_inr; return run <= budget; });
   const fundedCount = funded.filter(Boolean).length;
   const cutAt = funded.findIndex((f, k) => !f && items[k].est_cost_inr > 0);
-  const spentInPlan = items.filter((_, k) => funded[k]).reduce((s, i) => s + i.est_cost_inr, 0);
   const gap = base + recoverable - planCost;
   const pctOf = (v: number) => `${Math.min(100, (100 * v) / max)}%`;
+  const shown = all ? items : items.slice(0, 3);
+
+  const answer = !items.length
+    ? `${ward} has no open, unfixed road problems mapped right now.`
+    : gap >= 0
+      ? `${ward} can fix all ${items.length} risky roads (${inr(planCost)}) and still have ${inr(gap)} spare.`
+      : `${ward} is ${inr(-gap)} short of fixing its ${items.length} risky roads.`;
 
   return (
     <div className="space-y-5">
-      {/* money bar */}
+      <p className={`${B} text-[clamp(20px,2.2vw,26px)] font-semibold leading-snug`}>{answer}</p>
+
+      {/* money + what-if, one card */}
       <div className={`${CARD} p-5`}>
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <div className={`${B} text-lg font-semibold`}>Can this ward afford its plan?</div>
-          <div className={`${B} text-lg font-semibold ${gap >= 0 ? "text-[#15803d]" : "text-[#c2410c]"}`}>
-            {gap >= 0 ? `Yes, ${inr(gap)} spare` : `Short by ${inr(-gap)}`}
-          </div>
-        </div>
-        <div className="relative mt-4 h-7 overflow-hidden rounded-full bg-[rgba(43,48,51,.08)]">
+        <div className="relative h-5 overflow-hidden rounded-full bg-[rgba(43,48,51,.08)]">
           <div className="absolute inset-y-0 left-0 bg-[#0ca30c]" style={{ width: pctOf(base) }} />
           <div className="absolute inset-y-0 border-l-2 border-white bg-[#2a78d6]" style={{ left: pctOf(base), width: pctOf(recoverable) }} />
-          <div className="absolute inset-y-0 w-[3px] bg-[#2b3033]" style={{ left: `calc(${pctOf(planCost)} - 1.5px)` }} title="Plan cost" />
+          <div className="absolute inset-y-0 w-[3px] bg-[#2b3033]" style={{ left: `calc(${pctOf(planCost)} - 1.5px)` }} />
         </div>
-        <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm">
-          <span><i className="mr-1.5 inline-block size-2.5 rounded-full bg-[#0ca30c]" />Budget left <b>{inr(base)}</b>{left < 0 && <span className="text-[#c2410c]"> (already over by {inr(-left)})</span>}</span>
-          <span><i className="mr-1.5 inline-block size-2.5 rounded-full bg-[#2a78d6]" />Recoverable from flagged jobs <b>{inr(recoverable)}</b></span>
-          <span><i className="mr-1.5 inline-block h-2.5 w-[3px] bg-[#2b3033] align-middle" /> Plan cost <b>{inr(planCost)}</b></span>
+        <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-[#4a4f52]">
+          <span><i className="mr-1.5 inline-block size-2.5 rounded-full bg-[#0ca30c]" />Budget left {inr(base)}</span>
+          <span><i className="mr-1.5 inline-block size-2.5 rounded-full bg-[#2a78d6]" />Recoverable from flagged bills {inr(recoverable)}</span>
+          <span><i className="mr-1.5 inline-block h-2.5 w-[3px] bg-[#2b3033] align-middle" /> Plan {inr(planCost)}</span>
         </div>
-      </div>
-
-      {/* slider */}
-      <div className={`${CARD} p-5`}>
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <label htmlFor="budget" className={`${B} text-lg font-semibold`}>What if the ward had…</label>
-          <div className={`${B} text-2xl font-semibold tabular-nums`}>{inr(budget)}</div>
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <label htmlFor="budget" className="text-sm font-semibold">Try a budget</label>
+          <input id="budget" type="range" min={0} max={max} step={Math.max(1000, Math.round(max / 200))} value={budget}
+            onChange={(e) => setBudget(Number(e.target.value))} className="min-w-[160px] flex-1 accent-[#ee7454]" />
+          <span className={`${B} w-28 text-right text-lg font-semibold tabular-nums`}>{inr(budget)}</span>
         </div>
-        <input id="budget" type="range" min={0} max={max} step={Math.max(1000, Math.round(max / 200))} value={budget}
-          onChange={(e) => setBudget(Number(e.target.value))} className="mt-3 w-full accent-[#ee7454]" />
-        <div className="mt-1 flex flex-wrap gap-2 text-sm">
-          <button onClick={() => setBudget(0)} className="rounded-full bg-[rgba(43,48,51,.07)] px-3 py-1 hover:text-[#ee7454]">₹0</button>
-          <button onClick={() => setBudget(base)} className="rounded-full bg-[#dcfce7] px-3 py-1 text-[#166534]">Budget left</button>
-          <button onClick={() => setBudget(base + recoverable)} className="rounded-full bg-[#e0f2fe] px-3 py-1 text-[#075985]">+ recovered money</button>
-          <button onClick={() => setBudget(planCost)} className="rounded-full bg-[rgba(43,48,51,.07)] px-3 py-1 hover:text-[#ee7454]">Whole plan</button>
-        </div>
-        <p className={`${B} mt-3 text-[17px] font-semibold`}>
-          Fixes {fundedCount} of {items.length} roads ({inr(spentInPlan)}){fundedCount < items.length ? `. ${items.length - fundedCount} wait for the next allocation.` : ". Everything on the list is covered."}
+        <p className="mt-1 text-[15px]">
+          Fixes <b>{fundedCount} of {items.length}</b> roads{fundedCount < items.length ? `; ${items.length - fundedCount} wait for the next allocation.` : "."}
         </p>
       </div>
 
-      {/* ranked list with the cut-off line */}
+      {/* the roads */}
       <ol className="space-y-2.5">
-        {items.map((i, k) => {
-          const a = actionLabel(i);
-          const ok = funded[k];
-          return (
-            <li key={i.road_id}>
-              {k === cutAt && (
-                <div className="my-3 flex items-center gap-3 text-sm font-semibold text-[#c2410c]">
-                  <span className="h-[2px] flex-1 bg-[#c2410c]" /> Budget runs out here <span className="h-[2px] flex-1 bg-[#c2410c]" />
+        {shown.map((i, k) => (
+          <li key={i.road_id}>
+            {all && k === cutAt && (
+              <div className="my-2 flex items-center gap-3 text-sm font-semibold text-[#c2410c]"><span className="h-[2px] flex-1 bg-[#c2410c]" />Budget runs out here<span className="h-[2px] flex-1 bg-[#c2410c]" /></div>
+            )}
+            <div className={`${CARD} flex items-start gap-4 p-4 ${funded[k] ? "" : "opacity-55"}`}>
+              <span className={`${B} grid size-9 flex-none place-items-center rounded-xl font-semibold ${funded[k] ? "bg-[#ee7454] text-white" : "bg-[rgba(43,48,51,.1)]"}`}>{k + 1}</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-3">
+                  <Link href={`/track?q=${encodeURIComponent(i.road.replace(/ \(seg \d+\)$/, ""))}`} className={`${B} min-w-0 font-semibold leading-tight hover:text-[#ee7454]`}>{i.road}</Link>
+                  <span className={`${B} flex-none font-semibold tabular-nums`}>{i.est_cost_inr ? inr(i.est_cost_inr) : "₹0"}</span>
                 </div>
-              )}
-              <div className={`${CARD} flex gap-4 p-4 ${ok ? "" : "opacity-55"}`}>
-                <div className={`${B} grid size-10 flex-none place-items-center rounded-xl text-lg font-semibold ${ok ? "bg-[#ee7454] text-white" : "bg-[rgba(43,48,51,.1)]"}`}>{k + 1}</div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-3">
-                    <Link href={`/track?q=${encodeURIComponent(i.road.replace(/ \(seg \d+\)$/, ""))}`} className={`${B} min-w-0 font-semibold leading-tight hover:text-[#ee7454]`}>{i.road}</Link>
-                    <span className={`${B} flex-none font-semibold tabular-nums`}>{i.est_cost_inr ? inr(i.est_cost_inr) : "₹0"}</span>
-                  </div>
-                  <div className={`mt-1.5 inline-block rounded-lg px-2.5 py-1 text-sm ${a.tone}`}>{a.icon} {a.text}</div>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {reasons(i).map((r) => (
-                      <span key={r.t} className={`rounded-full px-2.5 py-0.5 text-xs ${r.strong ? "bg-[#fde8e1] font-semibold text-[#9a3412]" : "bg-[rgba(43,48,51,.06)] text-[#4a4f52]"}`}>{r.t}</span>
-                    ))}
-                  </div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[rgba(43,48,51,.08)]"><div className="h-full rounded-full bg-[#2b3033]" style={{ width: `${i.risk}%` }} /></div>
-                    <span className="w-20 text-right text-xs text-[#4a4f52]">risk {Math.round(i.risk)}/100</span>
-                  </div>
-                </div>
+                <div className="mt-0.5 text-[15px]">{action(i)}</div>
+                <div className="mt-0.5 text-sm text-[#4a4f52]">Why first: {why(i)}</div>
               </div>
-            </li>
-          );
-        })}
+            </div>
+          </li>
+        ))}
       </ol>
-      {items.length === 0 && <div className={`${CARD} p-5 text-[#4a4f52]`}>No open, unfixed complaints mapped to roads in this ward.</div>}
+      {items.length > 3 && (
+        <button onClick={() => setAll(!all)} className={`${B} rounded-full px-4 py-2 font-semibold shadow-[0_0_0_1px_rgba(43,48,51,.2)] hover:text-[#ee7454]`}>
+          {all ? "Show top 3" : `Show all ${items.length} roads`}
+        </button>
+      )}
     </div>
   );
 }
