@@ -23,7 +23,7 @@ const UI = {
   // home
   home_menu: { en: "Wards", hi: "वार्ड", mr: "वॉर्ड" },
   home_link: { en: "Open the map", hi: "नक्शा खोलें", mr: "नकाशा उघडा" },
-  home_h1: { en: "Every monsoon rupee,", hi: "मानसून का हर रुपया,", mr: "पावसाळ्यातील प्रत्येक रुपया," },
+  home_h1: { en: "Every rupee,", hi: "हर रुपया,", mr: "प्रत्येक रुपया," },
   home_h2: { en: "followed to the road.", hi: "सड़क तक ट्रैक किया।", mr: "रस्त्यापर्यंत शोधला." },
   home_blurb: {
     en: "Pick any ward and see what BMC paid for its road repairs, who did the work, and whether the fix held up through the rains. Sample data, not official BMC records.",
