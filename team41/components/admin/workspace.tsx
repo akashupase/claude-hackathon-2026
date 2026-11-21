@@ -104,7 +104,11 @@ export default function AdminWorkspace({ data }: { data: AdminData }) {
 function Contracts({ data }: { data: AdminData }) {
   const [list, setList] = useState<Contract[]>([]);
   const [ready, setReady] = useState(false);
-  useEffect(() => { setList(load<Contract[]>(K_CONTRACTS, [])); setReady(true); }, []);
+  useEffect(() => {
+    // Deferred so we don't set state synchronously in the effect (post-hydration read).
+    const t = window.setTimeout(() => { setList(load<Contract[]>(K_CONTRACTS, [])); setReady(true); }, 0);
+    return () => window.clearTimeout(t);
+  }, []);
   useEffect(() => { if (ready) save(K_CONTRACTS, list); }, [list, ready]);
 
   const firstWard = data.lockedWard ?? data.wards[0]?.code ?? "";
@@ -238,7 +242,10 @@ function Contracts({ data }: { data: AdminData }) {
 function Complaints({ data }: { data: AdminData }) {
   const [stage, setStage] = useState<Record<string, Stage>>({});
   const [ready, setReady] = useState(false);
-  useEffect(() => { setStage(load<Record<string, Stage>>(K_COMPLAINTS, {})); setReady(true); }, []);
+  useEffect(() => {
+    const t = window.setTimeout(() => { setStage(load<Record<string, Stage>>(K_COMPLAINTS, {})); setReady(true); }, 0);
+    return () => window.clearTimeout(t);
+  }, []);
   useEffect(() => { if (ready) save(K_COMPLAINTS, stage); }, [stage, ready]);
 
   const [ward, setWard] = useState(data.lockedWard ?? "");

@@ -53,9 +53,8 @@ export default function AuditFlagsPanel({
             <span className="ml-1.5 text-[12px] font-medium text-[#4a4f52]">can be recovered</span>
           </span>
         </div>
-        <p className="mt-0.5 text-[13.5px] text-[#4a4f52]">
-          {scoped.length} suspicious repair bill{scoped.length === 1 ? "" : "s"} · money that can be
-          recovered · audit simulation (synthetic demo)
+        <p className="mt-0.5 truncate text-[12px] text-[#4a4f52]">
+          audit simulation · synthetic demo · money that can be recovered
         </p>
 
         {/* Reason filter chips */}
@@ -87,7 +86,7 @@ export default function AuditFlagsPanel({
       </div>
 
       {/* Cards */}
-      <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-0.5">
+      <div className="mt-2.5 min-h-0 flex-1 overscroll-contain overflow-y-auto pr-0.5">
         {filtered.length === 0 ? (
           <p className="rounded-xl bg-white px-4 py-6 text-center text-[14px] text-[#4a4f52] shadow-[0_0_0_1px_rgba(43,48,51,.14)]">
             {scoped.length === 0

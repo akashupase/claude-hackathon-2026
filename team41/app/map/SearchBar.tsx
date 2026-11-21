@@ -10,7 +10,7 @@ export type TrailFocus = {
 };
 
 export type SearchHit =
-  | { kind: "complaint"; record: TrailRecord; score: number }
+  | { kind: "complaint"; record: TrailRecord; score: number; snippet: string }
   | { kind: "road"; road: TrailRoad; score: number };
 
 const LANG_LABEL: Record<string, string> = {
@@ -49,6 +49,38 @@ function scoreRecord(r: TrailRecord, q: string): number {
   return score;
 }
 
+// Show the text that actually matched, so it's obvious why a result came up.
+// Preference: dispute post > description > area > photo note.
+function pickSnippet(r: TrailRecord, q: string): string {
+  const candidates = [
+    r.social_dispute?.text,
+    r.description,
+    r.locality_text ? `Area: ${r.locality_text}` : "",
+    r.photo_description,
+  ].filter(Boolean) as string[];
+  for (const t of candidates) {
+    if (q && t.toLowerCase().includes(q)) return t;
+  }
+  return candidates[0] ?? "";
+}
+
+// Wraps the first occurrence of the query in a subtle highlight.
+function Highlight({ text, q }: { text: string; q: string }) {
+  const needle = q.trim();
+  if (needle.length < 2) return <>{text}</>;
+  const idx = text.toLowerCase().indexOf(needle.toLowerCase());
+  if (idx === -1) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="rounded-sm bg-[#ffe9c7] px-0.5 text-inherit">
+        {text.slice(idx, idx + needle.length)}
+      </mark>
+      {text.slice(idx + needle.length)}
+    </>
+  );
+}
+
 // Universal search over the trail index: BMC25-/WO25- ids, localities, road
 // names and keywords in English, Hinglish, Hindi and Marathi.
 export default function SearchBar({
@@ -70,7 +102,8 @@ export default function SearchBar({
     for (const r of trail.complaints) {
       if (!r.ward_code) continue;
       const score = scoreRecord(r, q);
-      if (score > 0) complaints.push({ kind: "complaint", record: r, score });
+      if (score > 0)
+        complaints.push({ kind: "complaint", record: r, score, snippet: pickSnippet(r, q) });
     }
     complaints.sort(
       (a, b) =>
@@ -113,11 +146,14 @@ export default function SearchBar({
           ⌕
         </span>
         <input
-          type="search"
+          type="text"
           role="combobox"
           aria-expanded={open && total > 0}
           aria-controls="trail-search-results"
           aria-label="Search complaints, jobs, roads and areas"
+          autoComplete="off"
+          spellCheck={false}
+          enterKeyHint="search"
           placeholder="Search a complaint, job, road or area — try “pothole”, “paani” or “खड्डा”"
           value={query}
           onChange={(e) => {
@@ -143,7 +179,7 @@ export default function SearchBar({
               setQuery("");
               setOpen(false);
             }}
-            className="flex-none rounded-full px-1.5 text-[13px] text-[#4a4f52] hover:bg-[rgba(43,48,51,.1)]"
+            className="grid size-6 flex-none place-items-center rounded-full text-[15px] leading-none text-[#4a4f52] hover:bg-[rgba(43,48,51,.1)]"
             aria-label="Clear search"
           >
             ×
@@ -176,8 +212,11 @@ export default function SearchBar({
                   <ResultRow
                     key={hit.record.complaint_id}
                     chip={hit.record.complaint_id}
-                    title={hit.record.category_reported}
-                    snippet={hit.record.social_dispute?.text ?? hit.record.description}
+                    title={
+                      hit.record.category_reported +
+                      (hit.record.locality_text ? ` · ${hit.record.locality_text}` : "")
+                    }
+                    snippet={hit.snippet}
                     wardCode={hit.record.ward_code}
                     badges={[
                       LANG_LABEL[hit.record.language] ?? hit.record.language.toUpperCase(),
@@ -187,6 +226,7 @@ export default function SearchBar({
                         : []),
                       ...(hit.record.geocoded ? ["area matched"] : []),
                     ]}
+                    highlight={query.trim()}
                     onPick={() => pick(hit)}
                   />
                 ) : null,
@@ -200,6 +240,7 @@ export default function SearchBar({
                     snippet="Road segment — see complaints about it"
                     wardCode={hit.road.ward_code}
                     badges={["Road"]}
+                    highlight={query.trim()}
                     onPick={() => pick(hit)}
                   />
                 ) : null,
@@ -218,6 +259,7 @@ function ResultRow({
   snippet,
   wardCode,
   badges,
+  highlight,
   onPick,
 }: {
   chip: string;
@@ -225,6 +267,7 @@ function ResultRow({
   snippet: string;
   wardCode: string;
   badges: string[];
+  highlight: string;
   onPick: () => void;
 }) {
   return (
@@ -246,7 +289,9 @@ function ResultRow({
             Ward {wardCode}
           </span>
         </div>
-        <div className="mt-0.5 truncate text-[12px] text-[#4a4f52]">{snippet}</div>
+        <div className="mt-0.5 truncate text-[12px] text-[#4a4f52]">
+          <Highlight text={snippet} q={highlight} />
+        </div>
         {badges.length > 0 && (
           <div className="mt-1 flex flex-wrap gap-1">
             {badges.map((b) => (

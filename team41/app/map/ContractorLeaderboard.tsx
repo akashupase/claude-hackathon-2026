@@ -63,8 +63,8 @@ export default function ContractorLeaderboard({
 
   // Ward context for the caption: which ward's contractors we're looking at.
   const wardNote = selectedWardCode
-    ? `These ratings cover all 8 registered contractors across Mumbai. You are looking at Ward ${selectedWardCode}.`
-    : "These ratings cover all 8 registered contractors working across Mumbai.";
+    ? `Ward ${selectedWardCode} view · all 8 contractors registered with BMC`
+    : "All 8 contractors registered with BMC · tap a ward to focus";
 
   return (
     <section className="flex min-h-0 flex-1 flex-col" aria-label="Contractor leaderboard">
@@ -105,7 +105,7 @@ export default function ContractorLeaderboard({
             Fair (rain &amp; flood adjusted)
           </span>
         </div>
-        <p className="mt-1.5 text-[12.5px] leading-[1.4] text-[#4a4f52]">{wardNote}</p>
+        <p className="mt-1 truncate text-[12px] text-[#4a4f52]">{wardNote}</p>
 
         {/* Citizen appreciation: spotlight the fair-ranking leader */}
         {(() => {
@@ -113,7 +113,7 @@ export default function ContractorLeaderboard({
           if (!top) return null;
           const count = endorsements[top.contractor_id] ?? 0;
           return (
-            <div className="mt-2.5 rounded-xl bg-[#fff6ef] px-3 py-2.5 shadow-[0_0_0_1px_rgba(238,116,84,.4)]">
+            <div className="mt-2 rounded-xl bg-[#fff6ef] px-3 py-2 shadow-[0_0_0_1px_rgba(238,116,84,.4)]">
               <div className="flex items-center gap-1.5">
                 <span className="rounded-full bg-[#e3f2e4] px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[.05em] text-[#1e6b34]">
                   ✓ Durable work verified
@@ -145,7 +145,7 @@ export default function ContractorLeaderboard({
       </div>
 
       {/* Animated rows: DOM order is stable (raw rank), transforms re-sort */}
-      <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-0.5">
+      <div className="mt-2 min-h-0 flex-1 overscroll-contain overflow-y-auto pr-0.5">
         <div className="relative" style={{ height: contractors.length * ROW_H }}>
           {contractors.map((c) => (
             <LeaderRow
@@ -158,9 +158,16 @@ export default function ContractorLeaderboard({
         </div>
       </div>
 
-      <p className="flex-none px-1 pt-2 text-[11.5px] leading-[1.4] text-[#4a4f52]">
-        Each score blends: jobs finished on time (45%), repairs that lasted 30 days (35%) and how close bills were to the official rate card (20%). The fair view goes easy when a contractor worked in flood-prone wards during heavy-rain weeks.
-      </p>
+      <details className="flex-none px-1 pt-1.5 text-[11.5px] text-[#4a4f52]">
+        <summary className="cursor-pointer select-none font-medium text-[#2b3033]">
+          How scores work
+        </summary>
+        <p className="pt-1 leading-[1.45]">
+          Each score blends: jobs finished on time (45%), repairs that lasted 30 days (35%) and
+          how close bills were to the official rate card (20%). The fair view goes easy when a
+          contractor worked in flood-prone wards during heavy-rain weeks.
+        </p>
+      </details>
     </section>
   );
 }
@@ -190,7 +197,7 @@ function LeaderRow({
       }}
     >
       <div
-        className={`h-[88px] rounded-xl px-3 py-2 transition-colors duration-500 ${
+        className={`h-[88px] rounded-xl px-3.5 py-2 transition-colors duration-500 ${
           rank === 1
             ? "bg-white shadow-[0_0_0_1.5px_#ee7454]"
             : fair
@@ -225,25 +232,36 @@ function LeaderRow({
                 </span>
               )}
             </div>
-            <div className="mt-0.5 flex gap-3 text-[11.5px] tabular-nums text-[#4a4f52]">
-              <span>
-                On time <span className="text-[#2b3033]">{(fair ? c.adjusted.sla_met_pct : raw.sla_met_pct).toFixed(0)}%</span>
+            <div className="mt-1 grid w-max grid-cols-2 gap-x-4 gap-y-0.5 text-[11.5px] tabular-nums text-[#4a4f52]">
+              <span className="whitespace-nowrap">
+                On time{" "}
+                <span className="text-[#2b3033]">
+                  {(fair ? c.adjusted.sla_met_pct : raw.sla_met_pct).toFixed(0)}%
+                </span>
               </span>
-              <span>
-                Failed again <span className="text-[#2b3033]">{(fair ? c.adjusted.reopen_pct : raw.reopen_pct).toFixed(0)}%</span>
+              <span className="whitespace-nowrap">
+                Failed again{" "}
+                <span className="text-[#2b3033]">
+                  {(fair ? c.adjusted.reopen_pct : raw.reopen_pct).toFixed(0)}%
+                </span>
               </span>
-              <span className="hidden sm:inline">
-                Total billed <span className="text-[#2b3033]">{formatInrShort(raw.total_billed_inr)}</span>
+              <span className="whitespace-nowrap">
+                Billed{" "}
+                <span className="text-[#2b3033]">{formatInrShort(raw.total_billed_inr)}</span>
               </span>
-              <span className="hidden md:inline">
-                vs govt rate{" "}
-                <span className={raw.avg_cost_vs_expected_pct > 115 ? "text-[#b23a1d]" : "text-[#2b3033]"}>
+              <span className="whitespace-nowrap">
+                vs rate{" "}
+                <span
+                  className={
+                    raw.avg_cost_vs_expected_pct > 115 ? "text-[#b23a1d]" : "text-[#2b3033]"
+                  }
+                >
                   +{(raw.avg_cost_vs_expected_pct - 100).toFixed(0)}%
                 </span>
               </span>
             </div>
           </div>
-          <span className="flex-none text-right">
+          <span className="flex-none pl-2 text-right">
             <span className="font-[family-name:var(--font-bricolage)] text-[17px] font-semibold tabular-nums">
               {score.toFixed(1)}
             </span>
