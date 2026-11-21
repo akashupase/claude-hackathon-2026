@@ -85,3 +85,8 @@ export async function loadWardOutlines(): Promise<unknown> {
   const text = await readFile(path.join(DATA_DIR, "wards.geojson"), "utf8");
   return JSON.parse(text);
 }
+
+export async function loadRoads(): Promise<unknown> {
+  const text = await readFile(path.join(DATA_DIR, "roads.geojson"), "utf8");
+  return JSON.parse(text);
+}
